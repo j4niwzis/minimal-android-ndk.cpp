@@ -7,7 +7,7 @@ import mandk.log;
 import mandk.manifest;
 import mandk.plan;
 import mandk.search;
-import mandk.sha256;
+import mandk.process;
 
 export namespace mandk::steps {
 
@@ -46,15 +46,38 @@ export namespace mandk::steps {
   return step;
 }
 
-// Two files the rest of the build expects to find in an NDK-shaped tree
-// rather than where the platform keeps them: the native app glue the
-// application links, and the cpu-features source Skia's Android build
-// compiles. Both are located by name, because both have moved before.
+// An NDK-shaped tree made of symlinks, which is what lets Skia's own build
+// files work unchanged. Skia's Android toolchain reads its compiler out of
+// $ndk/toolchains/llvm/prebuilt/$ndk_host/bin and its sysroot out of the
+// directory beside it, and third_party/cpu-features compiles
+// $ndk/sources/android/cpufeatures/cpu-features.c. Nothing is copied: the
+// compiler here is the host's, and the sysroot is the one this tool built.
+[[nodiscard]] inline bool linkTool(const std::filesystem::path &bin,
+                                   std::string_view name,
+                                   std::string_view program) {
+  const std::filesystem::path resolved = findProgram(program);
+  if (resolved.empty()) {
+    log::debug("{} is not on PATH; the fake NDK will not offer {}", program,
+               name);
+    return false;
+  }
+  std::error_code code;
+  const std::filesystem::path link = bin / name;
+  std::filesystem::remove(link, code);
+  std::filesystem::create_symlink(std::filesystem::absolute(resolved, code),
+                                  link, code);
+  if (code) {
+    log::error("cannot link {}: {}", link.string(), code.message());
+    return false;
+  }
+  return true;
+}
+
 [[nodiscard]] inline Step ndkCompat() {
   Step step;
   step.fName = "ndk-compat";
-  step.fSummary = "put native_app_glue and cpu-features where builds look";
-  step.fNeeds = {"sources"};
+  step.fSummary = "an NDK-shaped tree of symlinks for builds that expect one";
+  step.fNeeds = {"sources", "sysroot-headers"};
   step.fKey = [](const Context &context) -> std::optional<std::string> {
     return context.baseKey();
   };
@@ -73,8 +96,9 @@ export namespace mandk::steps {
     }
     log::info("native app glue: {}", glue->string());
 
+    const std::filesystem::path compat = context.fLayout.ndkCompat();
     const std::filesystem::path features =
-        context.fLayout.ndkCompat() / "sources" / "android" / "cpufeatures";
+        compat / "sources" / "android" / "cpufeatures";
     std::optional<std::filesystem::path> source;
     for (const Source &candidate : context.fManifest.fSources) {
       source = search::file(context.fLayout.sourceOf(candidate.fName),
@@ -94,16 +118,51 @@ export namespace mandk::steps {
       if (!std::filesystem::exists(from, code)) {
         continue;
       }
-      std::filesystem::copy_file(from, features / name,
-                                 std::filesystem::copy_options::
-                                     overwrite_existing,
-                                 code);
+      std::filesystem::copy_file(
+          from, features / name,
+          std::filesystem::copy_options::overwrite_existing, code);
       if (code) {
         log::error("cannot copy {}: {}", from.string(), code.message());
         return false;
       }
     }
     log::info("cpu-features: {}", features.string());
+
+    // Skia decides this name from the host operating system alone and calls
+    // it linux-x86_64 whatever the host architecture is. The other spelling
+    // is there for anything that works the name out honestly.
+    const std::filesystem::path prebuilt =
+        compat / "toolchains" / "llvm" / "prebuilt";
+    const std::filesystem::path host = prebuilt / "linux-x86_64";
+    const std::filesystem::path bin = host / "bin";
+    std::filesystem::create_directories(bin, code);
+    (void)linkTool(bin, "clang", context.fTools.fClang);
+    (void)linkTool(bin, "clang++", context.fTools.fClangxx);
+    for (const auto &[name, program] :
+         std::initializer_list<std::pair<std::string_view, std::string_view>>{
+             {"ar", context.fTools.fAr},
+             {"llvm-ar", context.fTools.fAr},
+             {"ranlib", context.fTools.fRanlib},
+             {"llvm-ranlib", context.fTools.fRanlib},
+             {"readelf", context.fTools.fReadelf},
+             {"llvm-readelf", context.fTools.fReadelf},
+             {"ld.lld", "ld.lld"},
+             {"lld", "lld"},
+             {"strip", "llvm-strip"},
+             {"llvm-strip", "llvm-strip"},
+             {"nm", "llvm-nm"},
+             {"objcopy", "llvm-objcopy"},
+             {"objdump", "llvm-objdump"}}) {
+      (void)linkTool(bin, name, program);
+    }
+    const std::filesystem::path sysrootLink = host / "sysroot";
+    std::filesystem::remove(sysrootLink, code);
+    std::filesystem::create_directory_symlink(context.fLayout.sysroot(),
+                                              sysrootLink, code);
+    const std::filesystem::path other = prebuilt / "linux-aarch64";
+    std::filesystem::remove(other, code);
+    std::filesystem::create_directory_symlink(host, other, code);
+    log::info("fake NDK: {}", compat.string());
     return true;
   };
   return step;

@@ -47,9 +47,13 @@ set(mandk_modules
   src/aosp.cc
   src/pin.cc
   src/plan.cc
+  src/toolchainfile.cc
+  src/build.cc
   src/steps/sources.cc
   src/steps/headers.cc
   src/steps/stubs.cc
+  src/steps/thirdparty.cc
+  src/steps/skia.cc
   src/steps/planned.cc
   src/steps/hashes.cc
 )

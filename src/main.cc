@@ -9,8 +9,11 @@ import mandk.process;
 import mandk.steps.hashes;
 import mandk.steps.headers;
 import mandk.steps.planned;
+import mandk.steps.skia;
 import mandk.steps.sources;
 import mandk.steps.stubs;
+import mandk.steps.thirdparty;
+import mandk.toolchainfile;
 
 namespace {
 
@@ -22,6 +25,9 @@ using namespace mandk;
   plan.add(steps::ndkCompat());
   plan.add(steps::headers());
   plan.add(steps::apiStubs());
+  plan.add(toolchainFile());
+  plan.add(steps::thirdParty());
+  plan.add(steps::skia());
   for (Step &step : steps::remaining()) {
     plan.add(std::move(step));
   }
@@ -47,6 +53,8 @@ Options
   --clang NAME      host compiler                  (default clang)
   --python NAME     host python                    (default python3)
   --readelf NAME    stub verifier                  (default llvm-readelf)
+  --llvm-bin DIR    where llvm-ar and llvm-ranlib are, when not on PATH
+  --jobs N, -j N    parallel jobs for the dependency builds
   --force           run steps even when their stamp says they are done
   --dry-run         say what would run, run nothing
   --keep-going      do not stop at the first failed step
@@ -122,6 +130,14 @@ struct Invocation {
       const auto given = value(argument);
       if (!given) return std::nullopt;
       invocation.fTools.fReadelf = *given;
+    } else if (argument == "--llvm-bin") {
+      const auto given = value(argument);
+      if (!given) return std::nullopt;
+      invocation.fTools.fLlvmBin = *given;
+    } else if (argument == "--jobs" || argument == "-j") {
+      const auto given = value(argument);
+      if (!given) return std::nullopt;
+      invocation.fOptions.fJobs = std::stoi(*given);
     } else if (argument == "--force") {
       invocation.fOptions.fForce = true;
     } else if (argument == "--dry-run") {

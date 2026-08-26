@@ -64,6 +64,24 @@ struct HeaderRule {
   std::vector<std::string> fRequire;
 };
 
+// A dependency built for the target and installed into the prefix. Every one
+// of them is a static library with position-independent code; none of them
+// builds its own executables.
+//
+// fProduces is what must be in the prefix afterwards. A package whose build
+// quietly skipped the library and installed only headers is a link error
+// several packages later.
+struct Package {
+  std::string fName;
+  std::string fSource;
+  std::string fBuilder;
+  std::string fSubdirectory;
+  std::vector<std::string> fOptions;
+  std::vector<std::string> fNeeds;
+  std::vector<std::string> fProduces;
+  std::string fNote;
+};
+
 class Manifest {
 public:
   [[nodiscard]] static std::optional<Manifest>
@@ -128,6 +146,28 @@ public:
         stub.fVerify.push_back(symbol.get<std::string>());
       }
       manifest.fStubs.push_back(std::move(stub));
+    }
+    for (const json &entry : document.value("packages", json::array())) {
+      Package package;
+      package.fName = entry.value("name", std::string());
+      package.fSource = entry.value("source", package.fName);
+      package.fBuilder = entry.value("builder", std::string("cmake"));
+      package.fSubdirectory = entry.value("subdirectory", std::string());
+      package.fNote = entry.value("note", std::string());
+      for (const json &item : entry.value("options", json::array())) {
+        package.fOptions.push_back(item.get<std::string>());
+      }
+      for (const json &item : entry.value("needs", json::array())) {
+        package.fNeeds.push_back(item.get<std::string>());
+      }
+      for (const json &item : entry.value("produces", json::array())) {
+        package.fProduces.push_back(item.get<std::string>());
+      }
+      if (package.fName.empty()) {
+        log::error("a package in {} has no name", path.string());
+        return std::nullopt;
+      }
+      manifest.fPackages.push_back(std::move(package));
     }
     for (const json &entry : document.value("headers", json::array())) {
       HeaderRule rule;
@@ -195,6 +235,31 @@ public:
       }
       document["headers"].push_back(std::move(entry));
     }
+    document["packages"] = json::array();
+    for (const Package &package : fPackages) {
+      json entry;
+      entry["name"] = package.fName;
+      if (package.fSource != package.fName) {
+        entry["source"] = package.fSource;
+      }
+      entry["builder"] = package.fBuilder;
+      if (!package.fSubdirectory.empty()) {
+        entry["subdirectory"] = package.fSubdirectory;
+      }
+      if (!package.fOptions.empty()) {
+        entry["options"] = package.fOptions;
+      }
+      if (!package.fNeeds.empty()) {
+        entry["needs"] = package.fNeeds;
+      }
+      if (!package.fProduces.empty()) {
+        entry["produces"] = package.fProduces;
+      }
+      if (!package.fNote.empty()) {
+        entry["note"] = package.fNote;
+      }
+      document["packages"].push_back(std::move(entry));
+    }
     document["stubs"] = json::array();
     for (const StubLibrary &stub : fStubs) {
       json entry;
@@ -254,6 +319,7 @@ public:
   std::vector<Source> fSources;
   std::vector<StubLibrary> fStubs;
   std::vector<HeaderRule> fHeaders;
+  std::vector<Package> fPackages;
   std::filesystem::path fPath;
 };
 

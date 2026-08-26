@@ -29,6 +29,11 @@ struct Tools {
   std::string fRanlib = "llvm-ranlib";
   std::string fCmake = "cmake";
   std::string fNinja = "ninja";
+  std::string fGn = "gn";
+  std::string fPkgConfig = "pkg-config";
+  // Where llvm-ar and llvm-ranlib are, when they are not on PATH under those
+  // names. Alpine keeps them in /usr/lib/llvm<version>/bin.
+  std::string fLlvmBin;
 };
 
 struct Context {

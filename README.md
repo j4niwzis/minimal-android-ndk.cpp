@@ -1,10 +1,12 @@
 # minimal-android-ndk.cpp
 
-Builds an Android toolchain out of Android's own sources: no Gradle, no
-proprietary SDK command-line tools, no NDK binary distribution. The host
-compiler, CMake, Ninja, Python, Java, `aapt2` and `zipalign` come from the
-Linux distribution; everything else is checked out at a pinned commit and
-built here.
+Builds an Android toolchain out of Android's own sources. Nothing prebuilt
+is downloaded: not the NDK archive, not the SDK command-line tools, not
+Gradle. The sources of all of those are open -- what is not open is somebody
+else's build of them, and this is the build instead. The host compiler,
+CMake, Ninja, Python, Java, `aapt2` and `zipalign` come from the Linux
+distribution; everything else is checked out at a pinned commit and built
+here.
 
 It targets one ABI at a time. The tree it produces is the one described in
 [osu-cpp's Android notes][notes], so a tree assembled by hand and a tree
@@ -39,7 +41,9 @@ need not exist in each repository, which is what makes
 `git clone -b android-14.0.0_r75 platform/ndk` fail.
 
 Nothing is checked out that a step does not need: repositories with a
-`paths` list are fetched as a partial clone with a sparse checkout.
+`paths` list are fetched as a partial clone with a sparse checkout. The tags
+in the manifest are a starting point rather than a promise -- `pin` resolves
+each one against its remote and says so when there is no such ref.
 
 ## What it does so far
 
@@ -49,14 +53,28 @@ Nothing is checked out that a step does not need: repositories with a
 | `ndk-compat` | native_app_glue and cpu-features where the builds look for them |
 | `sysroot-headers` | assemble `usr/include` from the platform checkouts |
 | `api-stubs` | generate the link stubs with `ndkstubgen` and verify them |
+| `toolchain-file` | write the CMake toolchain file the dependencies use |
+| `third-party` | build the dependencies into the prefix, each a static library |
+| `skia` | build Ganesh for GLES against those dependencies |
 | `hashes` | record the commits and the digests of what was produced |
 
-`minimal-android-ndk plan` also lists the steps that are declared and not implemented
-yet: `compiler-rt`, `runtimes`, `third-party`, `skia`, `framework-res` and
-`apksigner`. They refuse to run rather than reporting a success they did not
-have.
+`minimal-android-ndk plan` also lists the steps that are declared and not
+implemented yet: `compiler-rt`, `runtimes`, `framework-res` and `apksigner`.
+They refuse to run rather than reporting a success they did not have.
 
-## Two things worth knowing
+**Skia is given the libraries built here.** zlib, libpng, libjpeg-turbo,
+libwebp and freetype are built for the target like every other dependency,
+and Skia is configured with `skia_use_system_*` so it links those instead of
+the copies in its own `third_party/externals`. Its dependency sync is then
+not needed at all, and the bundled zlib stops being a problem -- that copy is
+Chromium's, and its `zconf.h` includes a `chromeconf.h` which is not part of
+zlib. Skia's build files are used unpatched: `ndk-compat` is an NDK-shaped
+tree of symlinks pointing at the host compiler and at the sysroot built here,
+which is what Skia's Android toolchain expects to find. After `gn gen` the
+tool asks GN what the arguments actually came out as, because an argument
+that is misspelled or overridden still looks right in a copied command line.
+
+## Three things worth knowing
 
 **Header paths are searched for, not remembered.** A rule says
 `libc/kernel/uapi`, not a full path, and the checkout is walked for a

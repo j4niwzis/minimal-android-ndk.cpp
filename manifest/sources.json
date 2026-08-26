@@ -95,11 +95,207 @@
       "note": "Ganesh for GLES. Set ref to the milestone branch that is being tracked"
     },
     {
+      "name": "zlib",
+      "url": "https://github.com/madler/zlib",
+      "ref": "refs/tags/v1.3.1",
+      "commit": "",
+      "note": "built here rather than taken from Skia's third_party: that copy is Chromium's, and its zconf.h includes a chromeconf.h which is not part of zlib"
+    },
+    {
+      "name": "libpng",
+      "url": "https://github.com/pnggroup/libpng",
+      "ref": "refs/tags/v1.6.44",
+      "commit": ""
+    },
+    {
+      "name": "libjpeg-turbo",
+      "url": "https://github.com/libjpeg-turbo/libjpeg-turbo",
+      "ref": "refs/tags/3.0.4",
+      "commit": ""
+    },
+    {
+      "name": "libwebp",
+      "url": "https://chromium.googlesource.com/webm/libwebp",
+      "ref": "refs/tags/v1.4.0",
+      "commit": ""
+    },
+    {
+      "name": "freetype",
+      "url": "https://gitlab.freedesktop.org/freetype/freetype.git",
+      "ref": "refs/tags/VER-2-13-3",
+      "commit": ""
+    },
+    {
+      "name": "libzip",
+      "url": "https://github.com/nih-at/libzip",
+      "ref": "refs/tags/v1.11.2",
+      "commit": ""
+    },
+    {
+      "name": "ogg",
+      "url": "https://github.com/xiph/ogg",
+      "ref": "refs/tags/v1.3.5",
+      "commit": ""
+    },
+    {
+      "name": "vorbis",
+      "url": "https://github.com/xiph/vorbis",
+      "ref": "refs/tags/v1.3.7",
+      "commit": ""
+    },
+    {
+      "name": "flac",
+      "url": "https://github.com/xiph/flac",
+      "ref": "refs/tags/1.4.3",
+      "commit": ""
+    },
+    {
+      "name": "opus",
+      "url": "https://github.com/xiph/opus",
+      "ref": "refs/tags/v1.5.2",
+      "commit": ""
+    },
+    {
+      "name": "libsndfile",
+      "url": "https://github.com/libsndfile/libsndfile",
+      "ref": "refs/tags/1.2.2",
+      "commit": ""
+    },
+    {
+      "name": "xz",
+      "url": "https://github.com/tukaani-project/xz",
+      "ref": "refs/tags/v5.6.3",
+      "commit": ""
+    },
+    {
+      "name": "oboe",
+      "url": "https://github.com/google/oboe",
+      "ref": "refs/tags/1.9.0",
+      "commit": "",
+      "note": "OpenAL Soft's Android backend. A mismatched revision shows up as namespace errors around flowgraph"
+    },
+    {
+      "name": "openal-soft",
+      "url": "https://github.com/kcat/openal-soft",
+      "ref": "refs/tags/1.23.1",
+      "commit": ""
+    },
+    {
       "name": "r8",
       "url": "https://r8.googlesource.com/r8",
       "ref": "refs/heads/main",
       "commit": "",
       "note": "only needed when the document picker bridge is compiled to DEX"
+    }
+  ],
+  // Every one of these is a static library with position-independent code,
+  // and none of them builds its own executables, tests, examples or
+  // benchmarks: an executable needs the Android CRT startup objects, and this
+  // link sysroot deliberately does not have them.
+  "packages": [
+    {
+      "name": "zlib",
+      "options": ["-DZLIB_BUILD_EXAMPLES=OFF"],
+      "produces": ["lib/libz.a", "include/zlib.h", "lib/pkgconfig/zlib.pc"]
+    },
+    {
+      "name": "libpng",
+      "needs": ["zlib"],
+      "options": ["-DPNG_SHARED=OFF", "-DPNG_STATIC=ON", "-DPNG_TESTS=OFF",
+                  "-DPNG_TOOLS=OFF", "-DPNG_FRAMEWORK=OFF"],
+      "produces": ["lib/libpng16.a", "lib/pkgconfig/libpng.pc"]
+    },
+    {
+      "name": "libjpeg-turbo",
+      "options": ["-DENABLE_SHARED=OFF", "-DENABLE_STATIC=ON",
+                  "-DWITH_JAVA=OFF", "-DWITH_TURBOJPEG=ON"],
+      "produces": ["lib/libjpeg.a", "lib/pkgconfig/libjpeg.pc"]
+    },
+    {
+      "name": "libwebp",
+      "options": ["-DWEBP_BUILD_ANIM_UTILS=OFF", "-DWEBP_BUILD_CWEBP=OFF",
+                  "-DWEBP_BUILD_DWEBP=OFF", "-DWEBP_BUILD_GIF2WEBP=OFF",
+                  "-DWEBP_BUILD_IMG2WEBP=OFF", "-DWEBP_BUILD_VWEBP=OFF",
+                  "-DWEBP_BUILD_WEBPINFO=OFF", "-DWEBP_BUILD_WEBPMUX=OFF",
+                  "-DWEBP_BUILD_EXTRAS=OFF"],
+      "produces": ["lib/libwebp.a", "lib/pkgconfig/libwebp.pc"]
+    },
+    {
+      "name": "freetype",
+      "needs": ["zlib", "libpng"],
+      "options": ["-DFT_DISABLE_HARFBUZZ=ON", "-DFT_DISABLE_BROTLI=ON",
+                  "-DFT_DISABLE_BZIP2=ON", "-DFT_REQUIRE_ZLIB=ON",
+                  "-DFT_REQUIRE_PNG=ON"],
+      "produces": ["lib/libfreetype.a", "lib/pkgconfig/freetype2.pc"],
+      "note": "harfbuzz is off in Skia too, so it is not built for the target either"
+    },
+    {
+      "name": "libzip",
+      "needs": ["zlib"],
+      "options": ["-DBUILD_TOOLS=OFF", "-DBUILD_REGRESS=OFF",
+                  "-DBUILD_EXAMPLES=OFF", "-DBUILD_DOC=OFF",
+                  "-DENABLE_COMMONCRYPTO=OFF", "-DENABLE_GNUTLS=OFF",
+                  "-DENABLE_MBEDTLS=OFF", "-DENABLE_OPENSSL=OFF",
+                  "-DENABLE_BZIP2=OFF", "-DENABLE_LZMA=OFF",
+                  "-DENABLE_ZSTD=OFF", "-DHAVE_SYS_ATTR_H=0"],
+      "produces": ["lib/libzip.a", "lib/pkgconfig/libzip.pc"],
+      "note": "HAVE_SYS_ATTR_H is seeded because libzip must not select the Darwin source on Android"
+    },
+    {
+      "name": "xz",
+      "options": ["-DXZ_TOOL_XZ=OFF", "-DXZ_TOOL_XZDEC=OFF",
+                  "-DXZ_TOOL_LZMADEC=OFF", "-DXZ_TOOL_LZMAINFO=OFF",
+                  "-DXZ_TOOL_SCRIPTS=OFF", "-DXZ_DOC=OFF"],
+      "produces": ["lib/liblzma.a", "lib/pkgconfig/liblzma.pc"],
+      "note": "only the library: xz, xzdec, lzmadec and lzmainfo are executables"
+    },
+    {
+      "name": "ogg",
+      "produces": ["lib/libogg.a", "lib/pkgconfig/ogg.pc"]
+    },
+    {
+      "name": "vorbis",
+      "needs": ["ogg"],
+      "produces": ["lib/libvorbis.a", "lib/libvorbisenc.a"]
+    },
+    {
+      "name": "flac",
+      "needs": ["ogg"],
+      "options": ["-DBUILD_PROGRAMS=OFF", "-DBUILD_EXAMPLES=OFF",
+                  "-DBUILD_DOCS=OFF", "-DBUILD_CXXLIBS=OFF",
+                  "-DINSTALL_MANPAGES=OFF", "-DWITH_FORTIFY_SOURCE=OFF"],
+      "produces": ["lib/libFLAC.a"],
+      "note": "the microbenchmarks and the programs are executables"
+    },
+    {
+      "name": "opus",
+      "options": ["-DOPUS_BUILD_PROGRAMS=OFF", "-DOPUS_BUILD_TESTING=OFF"],
+      "produces": ["lib/libopus.a", "lib/pkgconfig/opus.pc"]
+    },
+    {
+      "name": "libsndfile",
+      "needs": ["ogg", "vorbis", "flac", "opus"],
+      "options": ["-DBUILD_PROGRAMS=OFF", "-DBUILD_EXAMPLES=OFF",
+                  "-DENABLE_EXTERNAL_LIBS=ON", "-DENABLE_MPEG=OFF",
+                  "-DENABLE_CPACK=OFF"],
+      "produces": ["lib/libsndfile.a", "lib/pkgconfig/sndfile.pc"]
+    },
+    {
+      "name": "oboe",
+      "options": ["-DBUILD_TESTING=OFF"],
+      "produces": ["lib/liboboe.a"]
+    },
+    {
+      "name": "openal-soft",
+      "needs": ["oboe"],
+      "options": ["-DLIBTYPE=STATIC", "-DALSOFT_EXAMPLES=OFF",
+                  "-DALSOFT_UTILS=OFF", "-DALSOFT_TESTS=OFF",
+                  "-DALSOFT_INSTALL_EXAMPLES=OFF", "-DALSOFT_INSTALL_UTILS=OFF",
+                  "-DALSOFT_BACKEND_OBOE=ON", "-DALSOFT_BACKEND_OPENSL=ON",
+                  "-DALSOFT_BACKEND_ALSA=OFF", "-DALSOFT_BACKEND_PULSEAUDIO=OFF",
+                  "-DALSOFT_BACKEND_PIPEWIRE=OFF"],
+      "produces": ["lib/libopenal.a", "lib/pkgconfig/openal.pc"],
+      "note": "Oboe compiles its OpenSL ES fallback at API 27, so both backends need their headers and stubs"
     }
   ],
   "headers": [

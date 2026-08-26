@@ -28,15 +28,6 @@ export namespace mandk::steps {
               "build libc++, libc++abi and libunwind, and install the module "
               "sources and libc++.modules.json with them",
               {"compiler-rt"}),
-      planned("third-party",
-              "build the static dependency graph: zlib, libpng, libjpeg-turbo, "
-              "libwebp, freetype, libzip, libsndfile, ogg, vorbis, FLAC, opus, "
-              "mpg123, liblzma, Oboe and OpenAL Soft",
-              {"runtimes"}),
-      planned("skia",
-              "build Ganesh for GLES with Vulkan off and install skia.pc with "
-              "the revision it was built from",
-              {"third-party"}),
       planned("framework-res",
               "link the platform resource package that aapt2 is given with -I",
               {"sources"}),
