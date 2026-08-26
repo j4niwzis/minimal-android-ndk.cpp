@@ -20,6 +20,7 @@
       "url": "https://android.googlesource.com/platform/bionic",
       "project": "platform/bionic",
       "commit": "",
+      "paths": ["libc", "libm", "libdl"],
       "note": "libc, libm and libdl: the public headers, the kernel uapi headers and the symbol maps"
     },
     {
@@ -27,6 +28,7 @@
       "url": "https://android.googlesource.com/platform/frameworks/native",
       "project": "platform/frameworks/native",
       "commit": "",
+      "paths": ["include", "libs", "opengl"],
       "note": "EGL, GLES, nativewindow and the android/ headers"
     },
     {
@@ -50,6 +52,7 @@
       "url": "https://android.googlesource.com/platform/frameworks/wilhelm",
       "project": "platform/frameworks/wilhelm",
       "commit": "",
+      "paths": ["include", "src"],
       "note": "OpenSL ES headers and symbol map"
     },
     {
@@ -57,6 +60,7 @@
       "url": "https://android.googlesource.com/platform/system/logging",
       "project": "platform/system/logging",
       "commit": "",
+      "paths": ["liblog"],
       "note": "liblog"
     },
     {
@@ -64,6 +68,7 @@
       "url": "https://android.googlesource.com/platform/ndk",
       "project": "platform/ndk",
       "commit": "",
+      "paths": ["meta", "sources"],
       "note": "meta/platforms.json for the API map, and the native app glue the application links"
     },
     {
@@ -71,6 +76,7 @@
       "url": "https://android.googlesource.com/platform/build/soong",
       "project": "platform/build/soong",
       "commit": "",
+      "paths": ["cc", "android"],
       "note": "ndkstubgen, and the future API level a preview codename resolves to"
     },
     {
@@ -85,6 +91,7 @@
       "url": "https://github.com/llvm/llvm-project",
       "ref": "refs/heads/main",
       "commit": "",
+      "paths": ["cmake", "runtimes", "compiler-rt", "libcxx", "libcxxabi", "libunwind", "libc", "third-party", "llvm/cmake", "llvm/utils"],
       "note": "compiler-rt builtins and the C++ runtimes. Set ref to the llvmorg-* tag matching the host clang; a checkout that is not complete shows up as libc++ missing llvm-libc shared headers"
     },
     {

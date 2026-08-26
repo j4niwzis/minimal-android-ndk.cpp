@@ -40,10 +40,16 @@ and that is the only thing the rest of the tool accepts -- the tag itself
 need not exist in each repository, which is what makes
 `git clone -b android-14.0.0_r75 platform/ndk` fail.
 
-Nothing is checked out that a step does not need: repositories with a
-`paths` list are fetched as a partial clone with a sparse checkout. The tags
-in the manifest are a starting point rather than a promise -- `pin` resolves
-each one against its remote and says so when there is no such ref.
+Nothing is fetched that a step does not need. Every repository is taken one
+commit deep, without tags and without submodules, and one that names a
+`paths` list is taken as a partial clone with a sparse checkout on top -- so
+`frameworks/base` arrives as `core/res` and `native/android` rather than as
+all of it, and `llvm-project` arrives as the runtimes and the CMake they
+read rather than as the compiler, which comes from the distribution anyway.
+Run with `--verbose` to see what each checkout weighed.
+
+The tags in the manifest are a starting point rather than a promise: `pin`
+resolves each one against its remote and says so when there is no such ref.
 
 ## What it does so far
 

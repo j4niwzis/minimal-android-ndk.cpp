@@ -60,8 +60,29 @@ head(const std::filesystem::path &repository) {
   return firstLine(result.fOutput);
 }
 
-// Brings one commit into a working tree, and no more of the history than that
-// commit needs. paths, when given, are the only directories checked out.
+// How much of the disk a checkout took, so that "minimal" is a number rather
+// than an intention.
+[[nodiscard]] inline std::uintmax_t
+diskUsage(const std::filesystem::path &directory) {
+  std::uintmax_t total = 0;
+  std::error_code code;
+  for (const auto &entry : std::filesystem::recursive_directory_iterator(
+           directory, std::filesystem::directory_options::skip_permission_denied,
+           code)) {
+    if (entry.is_regular_file(code)) {
+      total += entry.file_size(code);
+    }
+  }
+  return total;
+}
+
+[[nodiscard]] inline std::string megabytes(std::uintmax_t bytes) {
+  return std::format("{:.1f} MiB", static_cast<double>(bytes) / (1024.0 * 1024.0));
+}
+
+// Brings one commit into a working tree and as little else as the server will
+// allow: one commit deep, no tags, no submodules, and -- when only part of
+// the tree is wanted -- the blobs of that part only.
 //
 // Fetching a commit by name needs the server to allow it. Not every host
 // does, so a failure falls back to fetching the ref the manifest named and
@@ -89,13 +110,21 @@ head(const std::filesystem::path &repository) {
     (void)at(destination, {"remote", "set-url", "origin", url});
   }
 
+  // Nothing here wants a repository that repacks itself in the background,
+  // and nothing here reads a reflog.
+  (void)at(destination, {"config", "gc.auto", "0"});
+  (void)at(destination, {"config", "core.logAllRefUpdates", "false"});
+  (void)at(destination, {"config", "fetch.recurseSubmodules", "false"});
+  (void)at(destination, {"config", "protocol.version", "2"});
+
   if (const std::optional<std::string> current = head(destination);
       current && *current == commit) {
     log::debug("{} is already at {}", destination.string(), commit);
     return true;
   }
 
-  if (!paths.empty()) {
+  const bool partial = !paths.empty();
+  if (partial) {
     if (!at(destination, {"sparse-checkout", "init", "--cone"}).ok()) {
       log::warn("{} does not support sparse checkout; taking the whole tree",
                 destination.string());
@@ -106,28 +135,36 @@ head(const std::filesystem::path &repository) {
         return false;
       }
     }
+    // A sparse checkout still fetches every blob of the commit unless the
+    // server is asked for a partial clone, which is the difference between a
+    // few megabytes of frameworks/base and all of it. The two settings are
+    // what let the later lazy fetches work at all.
+    (void)at(destination, {"config", "remote.origin.promisor", "true"});
+    (void)at(destination,
+             {"config", "remote.origin.partialclonefilter", "blob:none"});
   }
 
-  // A sparse checkout still fetches every blob of the commit unless the
-  // server is asked for a partial clone, which is the difference between a
-  // few megabytes of frameworks/base and all of it.
-  std::vector<std::string> fetch{"fetch", "--depth", "1", "--no-tags"};
-  if (!paths.empty()) {
+  std::vector<std::string> fetch{"fetch", "--depth", "1", "--no-tags",
+                                 "--prune", "--no-recurse-submodules"};
+  if (partial) {
     fetch.push_back("--filter=blob:none");
   }
   fetch.push_back("origin");
   fetch.push_back(commit);
   bool fetched = at(destination, fetch).ok();
-  if (!fetched && !paths.empty()) {
+  if (!fetched && partial) {
     log::debug("{} refused a partial clone; fetching whole blobs", url);
-    fetched = at(destination, {"fetch", "--depth", "1", "--no-tags", "origin",
-                               commit})
+    (void)at(destination, {"config", "--unset", "remote.origin.promisor"});
+    (void)at(destination,
+             {"config", "--unset", "remote.origin.partialclonefilter"});
+    fetched = at(destination, {"fetch", "--depth", "1", "--no-tags",
+                               "--no-recurse-submodules", "origin", commit})
                   .ok();
   }
   if (!fetched && !refHint.empty()) {
     log::note("{} refused a fetch by commit; fetching {} instead", url, refHint);
-    fetched = at(destination,
-                 {"fetch", "--depth", "1", "origin", refHint})
+    fetched = at(destination, {"fetch", "--depth", "1", "--no-tags",
+                               "--no-recurse-submodules", "origin", refHint})
                   .ok();
   }
   if (!fetched) {
@@ -142,6 +179,9 @@ head(const std::filesystem::path &repository) {
                               destination.filename().string()))) {
     return false;
   }
+  log::debug("{} is {}{}", destination.filename().string(),
+             megabytes(diskUsage(destination)),
+             partial ? " (sparse, blobless)" : "");
   return true;
 }
 
