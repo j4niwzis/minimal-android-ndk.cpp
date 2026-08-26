@@ -51,6 +51,31 @@ Run with `--verbose` to see what each checkout weighed.
 The tags in the manifest are a starting point rather than a promise: `pin`
 resolves each one against its remote and says so when there is no such ref.
 
+## Features
+
+Not every application needs all of it, and what is off is not fetched at
+all -- no checkout, no build, nothing in the prefix.
+
+| feature | | |
+| --- | --- | --- |
+| `graphics` | on | Skia on GLES, and the image codecs and fonts it reads |
+| `audio` | on | OpenAL Soft on Oboe, libsndfile and the codecs behind it |
+| `archive` | on | libzip and liblzma |
+| `dex` | off | R8, for projects that compile a Java bridge to DEX |
+
+```sh
+minimal-android-ndk --without graphics --without audio build
+```
+
+leaves the sysroot, the API stubs, the C++ runtimes and zlib: a toolchain
+that compiles for Android and nothing more. A feature name that does not
+exist is refused rather than ignored, because a misspelt `--without` that is
+ignored looks exactly like one that worked.
+
+Turning a feature off cannot quietly take a library out from under something
+that is still being built: a package that needs one belonging to a feature
+that is off is an error, naming both.
+
 ## What it does so far
 
 | step | |

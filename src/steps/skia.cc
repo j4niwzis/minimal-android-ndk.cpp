@@ -141,6 +141,7 @@ export namespace mandk::steps {
 [[nodiscard]] inline Step skia() {
   Step step;
   step.fName = "skia";
+  step.fFeature = "graphics";
   step.fSummary = "build Ganesh for GLES against the libraries in the prefix";
   step.fNeeds = {"third-party", "ndk-compat"};
   step.fKey = [](const Context &context) -> std::optional<std::string> {

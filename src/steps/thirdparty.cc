@@ -13,7 +13,8 @@ export namespace mandk::steps {
 // The packages in the order they can be built, which is the order they were
 // written in unless one of them says it needs another.
 [[nodiscard]] inline std::optional<std::vector<const Package *>>
-packageOrder(const Manifest &manifest) {
+packageOrder(const Context &context) {
+  const Manifest &manifest = context.fManifest;
   std::map<std::string, const Package *> byName;
   for (const Package &package : manifest.fPackages) {
     byName[package.fName] = &package;
@@ -36,6 +37,14 @@ packageOrder(const Manifest &manifest) {
         log::error("{} needs {}, which is not a package", package->fName, need);
         return false;
       }
+      // Turning a feature off cannot quietly take a library out from under
+      // something that is still being built.
+      if (!context.wants(found->second->fFeature)) {
+        log::error("{} needs {}, which is in {} -- and {} is off",
+                   package->fName, need, found->second->fFeature,
+                   found->second->fFeature);
+        return false;
+      }
       if (!self(found->second, self)) {
         return false;
       }
@@ -46,6 +55,11 @@ packageOrder(const Manifest &manifest) {
     return true;
   };
   for (const Package &package : manifest.fPackages) {
+    if (!context.wants(package.fFeature)) {
+      log::debug("{} belongs to {}, which is off", package.fName,
+                 package.fFeature);
+      continue;
+    }
     if (!visit(&package, visit)) {
       return std::nullopt;
     }
@@ -111,7 +125,7 @@ packageOrder(const Manifest &manifest) {
   };
   step.fRun = [](Context &context) {
     const std::optional<std::vector<const Package *>> ordered =
-        packageOrder(context.fManifest);
+        packageOrder(context);
     if (!ordered) {
       return false;
     }

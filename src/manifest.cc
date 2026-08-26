@@ -7,6 +7,15 @@ import mandk.log;
 
 export namespace mandk {
 
+// A part of the toolchain that not every application needs. A feature is
+// turned on or off as a whole: the repositories behind it are not even
+// fetched when it is off.
+struct Feature {
+  std::string fName;
+  std::string fSummary;
+  bool fDefault = true;
+};
+
 // One checked-out repository. fProject is the name the AOSP manifest knows a
 // repository by; a source that has one is pinned from a release manifest,
 // and a source without one is pinned from its own remote.
@@ -22,6 +31,7 @@ struct Source {
   std::string fCommit;
   std::vector<std::string> fPaths;
   std::string fNote;
+  std::string fFeature;
 
   [[nodiscard]] bool pinned() const { return !fCommit.empty(); }
 };
@@ -38,6 +48,7 @@ struct StubLibrary {
   std::string fFile;
   std::string fPath;
   std::vector<std::string> fVerify;
+  std::string fFeature;
 
   [[nodiscard]] std::string soname() const {
     return std::format("lib{}.so", fName);
@@ -62,6 +73,7 @@ struct HeaderRule {
   bool fAll = false;
   std::vector<std::string> fExclude;
   std::vector<std::string> fRequire;
+  std::string fFeature;
 };
 
 // A dependency built for the target and installed into the prefix. Every one
@@ -80,6 +92,7 @@ struct Package {
   std::vector<std::string> fNeeds;
   std::vector<std::string> fProduces;
   std::string fNote;
+  std::string fFeature;
 };
 
 class Manifest {
@@ -120,6 +133,7 @@ public:
       source.fProject = entry.value("project", std::string());
       source.fRef = entry.value("ref", std::string());
       source.fCommit = entry.value("commit", std::string());
+      source.fFeature = entry.value("feature", std::string());
       source.fNote = entry.value("note", std::string());
       for (const json &item : entry.value("paths", json::array())) {
         source.fPaths.push_back(item.get<std::string>());
@@ -142,10 +156,22 @@ public:
       }
       stub.fFile = entry.value("file", std::string());
       stub.fPath = entry.value("path", std::string());
+      stub.fFeature = entry.value("feature", std::string());
       for (const json &symbol : entry.value("verify", json::array())) {
         stub.fVerify.push_back(symbol.get<std::string>());
       }
       manifest.fStubs.push_back(std::move(stub));
+    }
+    for (const json &entry : document.value("features", json::array())) {
+      Feature feature;
+      feature.fName = entry.value("name", std::string());
+      feature.fSummary = entry.value("summary", std::string());
+      feature.fDefault = entry.value("default", true);
+      if (feature.fName.empty()) {
+        log::error("a feature in {} has no name", path.string());
+        return std::nullopt;
+      }
+      manifest.fFeatures.push_back(std::move(feature));
     }
     for (const json &entry : document.value("packages", json::array())) {
       Package package;
@@ -154,6 +180,7 @@ public:
       package.fBuilder = entry.value("builder", std::string("cmake"));
       package.fSubdirectory = entry.value("subdirectory", std::string());
       package.fNote = entry.value("note", std::string());
+      package.fFeature = entry.value("feature", std::string());
       for (const json &item : entry.value("options", json::array())) {
         package.fOptions.push_back(item.get<std::string>());
       }
@@ -175,6 +202,7 @@ public:
       rule.fFind = entry.value("find", std::string());
       rule.fInto = entry.value("into", std::string());
       rule.fAll = entry.value("all", false);
+      rule.fFeature = entry.value("feature", std::string());
       for (const json &name : entry.value("exclude", json::array())) {
         rule.fExclude.push_back(name.get<std::string>());
       }
@@ -210,6 +238,9 @@ public:
         entry["ref"] = source.fRef;
       }
       entry["commit"] = source.fCommit;
+      if (!source.fFeature.empty()) {
+        entry["feature"] = source.fFeature;
+      }
       if (!source.fPaths.empty()) {
         entry["paths"] = source.fPaths;
       }
@@ -224,6 +255,9 @@ public:
       entry["source"] = rule.fSource;
       entry["find"] = rule.fFind;
       entry["into"] = rule.fInto;
+      if (!rule.fFeature.empty()) {
+        entry["feature"] = rule.fFeature;
+      }
       if (rule.fAll) {
         entry["all"] = true;
       }
@@ -234,6 +268,12 @@ public:
         entry["require"] = rule.fRequire;
       }
       document["headers"].push_back(std::move(entry));
+    }
+    document["features"] = json::array();
+    for (const Feature &feature : fFeatures) {
+      document["features"].push_back(json{{"name", feature.fName},
+                                          {"summary", feature.fSummary},
+                                          {"default", feature.fDefault}});
     }
     document["packages"] = json::array();
     for (const Package &package : fPackages) {
@@ -255,6 +295,9 @@ public:
       if (!package.fProduces.empty()) {
         entry["produces"] = package.fProduces;
       }
+      if (!package.fFeature.empty()) {
+        entry["feature"] = package.fFeature;
+      }
       if (!package.fNote.empty()) {
         entry["note"] = package.fNote;
       }
@@ -274,6 +317,9 @@ public:
       }
       if (!stub.fPath.empty()) {
         entry["path"] = stub.fPath;
+      }
+      if (!stub.fFeature.empty()) {
+        entry["feature"] = stub.fFeature;
       }
       if (!stub.fVerify.empty()) {
         entry["verify"] = stub.fVerify;
@@ -304,10 +350,12 @@ public:
     const auto found = std::ranges::find(fSources, name, &Source::fName);
     return found == fSources.end() ? nullptr : &*found;
   }
-  [[nodiscard]] std::vector<std::string> unpinned() const {
+  [[nodiscard]] std::vector<std::string>
+  unpinned(const std::set<std::string> &features) const {
     std::vector<std::string> names;
     for (const Source &source : fSources) {
-      if (!source.pinned()) {
+      if (!source.pinned() && (source.fFeature.empty() ||
+                               features.contains(source.fFeature))) {
         names.push_back(source.fName);
       }
     }
@@ -320,6 +368,7 @@ public:
   std::vector<StubLibrary> fStubs;
   std::vector<HeaderRule> fHeaders;
   std::vector<Package> fPackages;
+  std::vector<Feature> fFeatures;
   std::filesystem::path fPath;
 };
 

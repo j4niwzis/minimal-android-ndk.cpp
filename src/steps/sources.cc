@@ -19,7 +19,8 @@ export namespace mandk::steps {
     return context.baseKey();
   };
   step.fRun = [](Context &context) {
-    const std::vector<std::string> unpinned = context.fManifest.unpinned();
+    const std::vector<std::string> unpinned =
+        context.fManifest.unpinned(context.fFeatures);
     if (!unpinned.empty()) {
       log::error("these sources have no commit: {}",
                  [&unpinned] {
@@ -33,6 +34,11 @@ export namespace mandk::steps {
       return false;
     }
     for (const Source &source : context.fManifest.fSources) {
+      if (!context.wants(source.fFeature)) {
+        log::debug("{} belongs to {}, which is off", source.fName,
+                   source.fFeature);
+        continue;
+      }
       const std::filesystem::path destination =
           context.fLayout.sourceOf(source.fName);
       log::info("{} at {}", source.fName, source.fCommit.substr(0, 12));
@@ -108,25 +114,31 @@ export namespace mandk::steps {
       }
     }
     if (!source) {
-      log::error("cpu-features.c is in none of the checkouts; Skia's Android "
-                 "build compiles it");
-      return false;
-    }
-    std::filesystem::create_directories(features, code);
-    for (const std::string_view name : {"cpu-features.c", "cpu-features.h"}) {
-      const std::filesystem::path from = source->parent_path() / name;
-      if (!std::filesystem::exists(from, code)) {
-        continue;
-      }
-      std::filesystem::copy_file(
-          from, features / name,
-          std::filesystem::copy_options::overwrite_existing, code);
-      if (code) {
-        log::error("cannot copy {}: {}", from.string(), code.message());
+      if (!context.wants("graphics")) {
+        log::debug("no cpu-features.c, and nothing that needs it is on");
+      } else {
+        log::error("cpu-features.c is in none of the checkouts; Skia's "
+                   "Android build compiles it");
         return false;
       }
     }
-    log::info("cpu-features: {}", features.string());
+    if (source) {
+      std::filesystem::create_directories(features, code);
+      for (const std::string_view name : {"cpu-features.c", "cpu-features.h"}) {
+        const std::filesystem::path from = source->parent_path() / name;
+        if (!std::filesystem::exists(from, code)) {
+          continue;
+        }
+        std::filesystem::copy_file(
+            from, features / name,
+            std::filesystem::copy_options::overwrite_existing, code);
+        if (code) {
+          log::error("cannot copy {}: {}", from.string(), code.message());
+          return false;
+        }
+      }
+      log::info("cpu-features: {}", features.string());
+    }
 
     // Skia decides this name from the host operating system alone and calls
     // it linux-x86_64 whatever the host architecture is. The other spelling

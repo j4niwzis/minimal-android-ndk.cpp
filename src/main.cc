@@ -44,6 +44,11 @@ void usage() {
   minimal-android-ndk hashes                 record what was built and from what
   minimal-android-ndk env                    print the environment and the CMake flags
 
+Features
+  --with NAME       build this feature as well
+  --without NAME    do not build it, and do not fetch what only it needs
+                    (`plan` lists them and says which are on)
+
 Options
   --root DIR        where the toolchain is built   (default $ANDROID_FREE,
                     otherwise ~/android-free)
@@ -65,6 +70,8 @@ Options
 struct Invocation {
   std::string fCommand;
   std::vector<std::string> fRest;
+  std::vector<std::string> fWith;
+  std::vector<std::string> fWithout;
   std::filesystem::path fRoot;
   std::filesystem::path fManifest;
   std::string fPlatform;
@@ -138,6 +145,14 @@ struct Invocation {
       const auto given = value(argument);
       if (!given) return std::nullopt;
       invocation.fOptions.fJobs = std::stoi(*given);
+    } else if (argument == "--with") {
+      const auto given = value(argument);
+      if (!given) return std::nullopt;
+      invocation.fWith.push_back(*given);
+    } else if (argument == "--without") {
+      const auto given = value(argument);
+      if (!given) return std::nullopt;
+      invocation.fWithout.push_back(*given);
     } else if (argument == "--force") {
       invocation.fOptions.fForce = true;
     } else if (argument == "--dry-run") {
@@ -162,6 +177,51 @@ struct Invocation {
   return invocation;
 }
 
+// The features that are on: the ones the manifest turns on by default,
+// changed by what was asked for. A name that is not a feature is refused
+// rather than ignored -- a misspelt --without would otherwise look like it
+// worked and build everything.
+[[nodiscard]] std::optional<std::set<std::string>>
+chooseFeatures(const Manifest &manifest, std::span<const std::string> with,
+               std::span<const std::string> without) {
+  std::set<std::string> known;
+  std::set<std::string> chosen;
+  for (const Feature &feature : manifest.fFeatures) {
+    known.insert(feature.fName);
+    if (feature.fDefault) {
+      chosen.insert(feature.fName);
+    }
+  }
+  for (const std::string &name : with) {
+    if (!known.contains(name)) {
+      log::error("there is no feature called {}", name);
+      return std::nullopt;
+    }
+    chosen.insert(name);
+  }
+  for (const std::string &name : without) {
+    if (!known.contains(name)) {
+      log::error("there is no feature called {}", name);
+      return std::nullopt;
+    }
+    chosen.erase(name);
+  }
+  return chosen;
+}
+
+void printFeatures(const Context &context) {
+  if (context.fManifest.fFeatures.empty()) {
+    return;
+  }
+  std::cout << "features\n";
+  for (const Feature &feature : context.fManifest.fFeatures) {
+    std::cout << std::format("  {:<4} {:<10} {}\n",
+                             context.wants(feature.fName) ? "on" : "off",
+                             feature.fName, feature.fSummary);
+  }
+  std::cout << '\n';
+}
+
 void printPlan(const Plan &plan, const Context &context) {
   const std::vector<std::string> goals = plan.allNames();
   const std::optional<std::vector<std::string>> ordered = plan.order(goals);
@@ -173,10 +233,11 @@ void printPlan(const Plan &plan, const Context &context) {
     const std::optional<std::string> key =
         step->fKey ? step->fKey(context) : std::nullopt;
     const std::string_view state =
-        !step->fReady          ? "planned"
+        !context.wants(step->fFeature)         ? "off"
+        : !step->fReady                        ? "planned"
         : context.fJournal.upToDate(name, key) ? "done"
-        : !key                 ? "always"
-                               : "todo";
+        : !key                                 ? "always"
+                                               : "todo";
     std::cout << std::format("  {:<7} {:<16} {}\n", state, name,
                              step->fSummary);
   }
@@ -225,11 +286,18 @@ int main(int argc, char **argv) {
   std::filesystem::create_directories(layout.logs(), code);
   log::sink().setTranscript(layout.logs() / "minimal-android-ndk.log");
 
+  const std::optional<std::set<std::string>> features = chooseFeatures(
+      *manifest, invocation->fWith, invocation->fWithout);
+  if (!features) {
+    return 1;
+  }
+
   Context context{.fLayout = layout,
                   .fManifest = *manifest,
                   .fJournal = Journal(layout.stamps()),
                   .fOptions = invocation->fOptions,
-                  .fTools = invocation->fTools};
+                  .fTools = invocation->fTools,
+                  .fFeatures = *features};
 
   const Plan plan = wholePlan();
   const std::string &command = invocation->fCommand;
@@ -239,6 +307,7 @@ int main(int argc, char **argv) {
                              layout.root().string(),
                              invocation->fManifest.string(),
                              context.target().fTriple, context.target().fApi);
+    printFeatures(context);
     printPlan(plan, context);
     return 0;
   }
@@ -259,7 +328,8 @@ int main(int argc, char **argv) {
       goals = {"hashes"};
     } else if (goals.empty()) {
       for (const Step &step : plan.steps()) {
-        if (step.fReady && step.fName != "hashes") {
+        if (step.fReady && step.fName != "hashes" &&
+            context.wants(step.fFeature)) {
           goals.push_back(step.fName);
         }
       }

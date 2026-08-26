@@ -14,6 +14,30 @@
     "abi": "arm64-v8a",
     "api": 27
   },
+  // Parts not every application needs. A feature that is off is not built
+  // and the repositories only it reads are not even fetched.
+  "features": [
+    {
+      "name": "graphics",
+      "default": true,
+      "summary": "Skia on GLES, and the image codecs and fonts it reads"
+    },
+    {
+      "name": "audio",
+      "default": true,
+      "summary": "OpenAL Soft on Oboe, libsndfile and the codecs behind it"
+    },
+    {
+      "name": "archive",
+      "default": true,
+      "summary": "libzip and liblzma"
+    },
+    {
+      "name": "dex",
+      "default": false,
+      "summary": "R8, for projects that compile a Java bridge to DEX"
+    }
+  ],
   "sources": [
     {
       "name": "bionic",
@@ -44,6 +68,7 @@
       "url": "https://android.googlesource.com/platform/frameworks/av",
       "project": "platform/frameworks/av",
       "commit": "",
+      "feature": "audio",
       "paths": ["media/libaaudio"],
       "note": "AAudio headers and symbol map"
     },
@@ -52,6 +77,7 @@
       "url": "https://android.googlesource.com/platform/frameworks/wilhelm",
       "project": "platform/frameworks/wilhelm",
       "commit": "",
+      "feature": "audio",
       "paths": ["include", "src"],
       "note": "OpenSL ES headers and symbol map"
     },
@@ -99,6 +125,7 @@
       "url": "https://skia.googlesource.com/skia",
       "ref": "refs/heads/main",
       "commit": "",
+      "feature": "graphics",
       "note": "Ganesh for GLES. Set ref to the milestone branch that is being tracked"
     },
     {
@@ -112,86 +139,100 @@
       "name": "libpng",
       "url": "https://github.com/pnggroup/libpng",
       "ref": "refs/tags/v1.6.44",
-      "commit": ""
+      "commit": "",
+      "feature": "graphics"
     },
     {
       "name": "libjpeg-turbo",
       "url": "https://github.com/libjpeg-turbo/libjpeg-turbo",
       "ref": "refs/tags/3.0.4",
-      "commit": ""
+      "commit": "",
+      "feature": "graphics"
     },
     {
       "name": "libwebp",
       "url": "https://chromium.googlesource.com/webm/libwebp",
       "ref": "refs/tags/v1.4.0",
-      "commit": ""
+      "commit": "",
+      "feature": "graphics"
     },
     {
       "name": "freetype",
       "url": "https://gitlab.freedesktop.org/freetype/freetype.git",
       "ref": "refs/tags/VER-2-13-3",
-      "commit": ""
+      "commit": "",
+      "feature": "graphics"
     },
     {
       "name": "libzip",
       "url": "https://github.com/nih-at/libzip",
       "ref": "refs/tags/v1.11.2",
-      "commit": ""
+      "commit": "",
+      "feature": "archive"
     },
     {
       "name": "ogg",
       "url": "https://github.com/xiph/ogg",
       "ref": "refs/tags/v1.3.5",
-      "commit": ""
+      "commit": "",
+      "feature": "audio"
     },
     {
       "name": "vorbis",
       "url": "https://github.com/xiph/vorbis",
       "ref": "refs/tags/v1.3.7",
-      "commit": ""
+      "commit": "",
+      "feature": "audio"
     },
     {
       "name": "flac",
       "url": "https://github.com/xiph/flac",
       "ref": "refs/tags/1.4.3",
-      "commit": ""
+      "commit": "",
+      "feature": "audio"
     },
     {
       "name": "opus",
       "url": "https://github.com/xiph/opus",
       "ref": "refs/tags/v1.5.2",
-      "commit": ""
+      "commit": "",
+      "feature": "audio"
     },
     {
       "name": "libsndfile",
       "url": "https://github.com/libsndfile/libsndfile",
       "ref": "refs/tags/1.2.2",
-      "commit": ""
+      "commit": "",
+      "feature": "audio"
     },
     {
       "name": "xz",
       "url": "https://github.com/tukaani-project/xz",
       "ref": "refs/tags/v5.6.3",
-      "commit": ""
+      "commit": "",
+      "feature": "archive"
     },
     {
       "name": "oboe",
       "url": "https://github.com/google/oboe",
       "ref": "refs/tags/1.9.0",
       "commit": "",
+      "feature": "audio",
       "note": "OpenAL Soft's Android backend. A mismatched revision shows up as namespace errors around flowgraph"
     },
     {
       "name": "openal-soft",
       "url": "https://github.com/kcat/openal-soft",
       "ref": "refs/tags/1.23.1",
-      "commit": ""
+      "commit": "",
+      "feature": "audio"
     },
     {
       "name": "r8",
       "url": "https://r8.googlesource.com/r8",
       "ref": "refs/heads/main",
       "commit": "",
+      "feature": "dex",
       "note": "only needed when the document picker bridge is compiled to DEX"
     }
   ],
@@ -207,6 +248,7 @@
     },
     {
       "name": "libpng",
+      "feature": "graphics",
       "needs": ["zlib"],
       "options": ["-DPNG_SHARED=OFF", "-DPNG_STATIC=ON", "-DPNG_TESTS=OFF",
                   "-DPNG_TOOLS=OFF", "-DPNG_FRAMEWORK=OFF"],
@@ -214,12 +256,14 @@
     },
     {
       "name": "libjpeg-turbo",
+      "feature": "graphics",
       "options": ["-DENABLE_SHARED=OFF", "-DENABLE_STATIC=ON",
                   "-DWITH_JAVA=OFF", "-DWITH_TURBOJPEG=ON"],
       "produces": ["lib/libjpeg.a", "lib/pkgconfig/libjpeg.pc"]
     },
     {
       "name": "libwebp",
+      "feature": "graphics",
       "options": ["-DWEBP_BUILD_ANIM_UTILS=OFF", "-DWEBP_BUILD_CWEBP=OFF",
                   "-DWEBP_BUILD_DWEBP=OFF", "-DWEBP_BUILD_GIF2WEBP=OFF",
                   "-DWEBP_BUILD_IMG2WEBP=OFF", "-DWEBP_BUILD_VWEBP=OFF",
@@ -229,6 +273,7 @@
     },
     {
       "name": "freetype",
+      "feature": "graphics",
       "needs": ["zlib", "libpng"],
       "options": ["-DFT_DISABLE_HARFBUZZ=ON", "-DFT_DISABLE_BROTLI=ON",
                   "-DFT_DISABLE_BZIP2=ON", "-DFT_REQUIRE_ZLIB=ON",
@@ -238,6 +283,7 @@
     },
     {
       "name": "libzip",
+      "feature": "archive",
       "needs": ["zlib"],
       "options": ["-DBUILD_TOOLS=OFF", "-DBUILD_REGRESS=OFF",
                   "-DBUILD_EXAMPLES=OFF", "-DBUILD_DOC=OFF",
@@ -250,6 +296,7 @@
     },
     {
       "name": "xz",
+      "feature": "archive",
       "options": ["-DXZ_TOOL_XZ=OFF", "-DXZ_TOOL_XZDEC=OFF",
                   "-DXZ_TOOL_LZMADEC=OFF", "-DXZ_TOOL_LZMAINFO=OFF",
                   "-DXZ_TOOL_SCRIPTS=OFF", "-DXZ_DOC=OFF"],
@@ -258,15 +305,18 @@
     },
     {
       "name": "ogg",
+      "feature": "audio",
       "produces": ["lib/libogg.a", "lib/pkgconfig/ogg.pc"]
     },
     {
       "name": "vorbis",
+      "feature": "audio",
       "needs": ["ogg"],
       "produces": ["lib/libvorbis.a", "lib/libvorbisenc.a"]
     },
     {
       "name": "flac",
+      "feature": "audio",
       "needs": ["ogg"],
       "options": ["-DBUILD_PROGRAMS=OFF", "-DBUILD_EXAMPLES=OFF",
                   "-DBUILD_DOCS=OFF", "-DBUILD_CXXLIBS=OFF",
@@ -276,11 +326,13 @@
     },
     {
       "name": "opus",
+      "feature": "audio",
       "options": ["-DOPUS_BUILD_PROGRAMS=OFF", "-DOPUS_BUILD_TESTING=OFF"],
       "produces": ["lib/libopus.a", "lib/pkgconfig/opus.pc"]
     },
     {
       "name": "libsndfile",
+      "feature": "audio",
       "needs": ["ogg", "vorbis", "flac", "opus"],
       "options": ["-DBUILD_PROGRAMS=OFF", "-DBUILD_EXAMPLES=OFF",
                   "-DENABLE_EXTERNAL_LIBS=ON", "-DENABLE_MPEG=OFF",
@@ -289,11 +341,13 @@
     },
     {
       "name": "oboe",
+      "feature": "audio",
       "options": ["-DBUILD_TESTING=OFF"],
       "produces": ["lib/liboboe.a"]
     },
     {
       "name": "openal-soft",
+      "feature": "audio",
       "needs": ["oboe"],
       "options": ["-DLIBTYPE=STATIC", "-DALSOFT_EXAMPLES=OFF",
                   "-DALSOFT_UTILS=OFF", "-DALSOFT_TESTS=OFF",
@@ -372,12 +426,14 @@
     {
       "source": "wilhelm",
       "find": "include/SLES",
+      "feature": "audio",
       "into": "SLES",
       "require": ["SLES/OpenSLES.h", "SLES/OpenSLES_Android.h"]
     },
     {
       "source": "av",
       "find": "include/aaudio",
+      "feature": "audio",
       "into": "aaudio",
       "require": ["aaudio/AAudio.h"]
     }
@@ -439,12 +495,14 @@
     },
     {
       "library": "aaudio",
+      "feature": "audio",
       "source": "av",
       "file": "libaaudio.map.txt",
       "verify": ["AAudio_createStreamBuilder"]
     },
     {
       "library": "OpenSLES",
+      "feature": "audio",
       "source": "wilhelm",
       "file": "libOpenSLES.map.txt",
       "verify": ["slCreateEngine"]

@@ -95,6 +95,9 @@ struct StubPlan {
 locateMaps(const Context &context) {
   std::vector<StubPlan> plans;
   for (const StubLibrary &stub : context.fManifest.fStubs) {
+    if (!context.wants(stub.fFeature)) {
+      continue;
+    }
     std::optional<std::filesystem::path> map;
     for (const std::string &name : stub.fSources) {
       const std::filesystem::path root = context.fLayout.sourceOf(name);
@@ -234,6 +237,9 @@ locateMaps(const Context &context) {
     hash.update(context.baseKey());
     hash.update(firstLine(version.fOutput));
     for (const StubLibrary &stub : context.fManifest.fStubs) {
+      if (!context.wants(stub.fFeature)) {
+        continue;
+      }
       hash.update(stub.fName);
       for (const std::string &name : stub.fSources) {
         hash.update(name);
