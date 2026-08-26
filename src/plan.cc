@@ -42,12 +42,13 @@ struct Context {
   Journal fJournal;
   Options fOptions;
   Tools fTools;
-  // The features that are on. Anything with no feature of its own is part of
-  // the toolchain proper and is always built.
-  std::set<std::string> fFeatures;
+  // The libraries asked for, and everything they need. The toolchain itself
+  // -- the sysroot, the stubs, the runtimes -- is not in here: it is not
+  // optional.
+  std::set<std::string> fPackages;
 
-  [[nodiscard]] bool wants(std::string_view feature) const {
-    return feature.empty() || fFeatures.contains(std::string(feature));
+  [[nodiscard]] bool wants(std::string_view package) const {
+    return fPackages.contains(std::string(package));
   }
 
   [[nodiscard]] const Target &target() const { return fManifest.fTarget; }
@@ -59,8 +60,8 @@ struct Context {
     hash.update(fManifest.fTarget.fTriple);
     hash.update(std::to_string(fManifest.fTarget.fApi));
     hash.update(fManifest.fTarget.fArch);
-    for (const std::string &feature : fFeatures) {
-      hash.update(feature);
+    for (const std::string &package : fPackages) {
+      hash.update(package);
     }
     for (const Source &source : fManifest.fSources) {
       hash.update(source.fName);
@@ -74,9 +75,6 @@ struct Step {
   std::string fName;
   std::string fSummary;
   std::vector<std::string> fNeeds;
-  // A step that belongs to a feature does not run when that feature is off,
-  // and is not a failure for not running.
-  std::string fFeature;
   // A step that is declared so that the road is visible but does not build
   // anything yet. It refuses to run rather than reporting a success it did
   // not have.
@@ -134,10 +132,6 @@ public:
       const Step *const step = this->find(name);
       if (step == nullptr) {
         return false;
-      }
-      if (!context.wants(step->fFeature)) {
-        log::debug("{} belongs to {}, which is off", name, step->fFeature);
-        continue;
       }
       const std::optional<std::string> key =
           step->fKey ? step->fKey(context) : std::nullopt;

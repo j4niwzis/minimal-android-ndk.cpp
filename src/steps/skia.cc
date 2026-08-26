@@ -6,6 +6,7 @@ import mandk.copy;
 import mandk.git;
 import mandk.layout;
 import mandk.log;
+import mandk.manifest;
 import mandk.plan;
 import mandk.process;
 import mandk.sha256;
@@ -79,7 +80,7 @@ export namespace mandk::steps {
       run({.fProgram = context.fTools.fGn,
            .fArguments = {"args", out.string(), std::format("--list={}", name),
                           "--short"},
-           .fDirectory = context.fLayout.sourceOf("skia")});
+           .fDirectory = out.parent_path().parent_path()});
   if (!listed.ok()) {
     log::error("gn cannot report {}", name);
     return false;
@@ -138,49 +139,38 @@ export namespace mandk::steps {
       "-I${includedir} -I${includedir}/skia");
 }
 
-[[nodiscard]] inline Step skia() {
-  Step step;
-  step.fName = "skia";
-  step.fFeature = "graphics";
-  step.fSummary = "build Ganesh for GLES against the libraries in the prefix";
-  step.fNeeds = {"third-party", "ndk-compat"};
-  step.fKey = [](const Context &context) -> std::optional<std::string> {
-    Sha256 hash;
-    hash.update(context.baseKey());
-    for (const std::string &argument : gnArguments(context)) {
-      hash.update(argument);
-    }
-    return hash.hex();
-  };
-  step.fRun = [](Context &context) {
-    const std::filesystem::path source = context.fLayout.sourceOf("skia");
-    const std::filesystem::path out = source / "out" / "android-arm64";
-    const std::vector<std::string> arguments = gnArguments(context);
-    if (!runChecked({.fProgram = context.fTools.fGn,
-                     .fArguments = {"gen", out.string(),
-                                    std::format("--args={}",
-                                                text::join(arguments, " "))},
-                     .fDirectory = source},
-                    "gn gen")) {
-      return false;
-    }
-    if (!confirmArgument(context, out, "skia_use_vulkan", "false") ||
-        !confirmArgument(context, out, "skia_use_system_zlib", "true") ||
-        !confirmArgument(context, out, "skia_use_system_freetype2", "true")) {
-      return false;
-    }
-    if (!runChecked({.fProgram = context.fTools.fNinja,
-                     .fArguments = {"-C", out.string(), "-j",
-                                    std::to_string(context.fOptions.fJobs),
-                                    "skia"},
-                     .fDirectory = source,
-                     .fCapture = false},
-                    "building Skia")) {
-      return false;
-    }
-    return installSkia(context, source, out);
-  };
-  return step;
+// Skia is a package like the others -- it is asked for by name and it is not
+// built when it is not -- but it is not built like the others: GN, a set of
+// arguments that have to be confirmed afterwards, and an install that is
+// assembled here because Skia has no install of its own.
+[[nodiscard]] inline bool buildSkia(Context &context, const Package &package) {
+  const std::filesystem::path source =
+      context.fLayout.sourceOf(package.fSource);
+  const std::filesystem::path out = source / "out" / "android-arm64";
+  const std::vector<std::string> arguments = gnArguments(context);
+  if (!runChecked({.fProgram = context.fTools.fGn,
+                   .fArguments = {"gen", out.string(),
+                                  std::format("--args={}",
+                                              text::join(arguments, " "))},
+                   .fDirectory = source},
+                  "gn gen")) {
+    return false;
+  }
+  if (!confirmArgument(context, out, "skia_use_vulkan", "false") ||
+      !confirmArgument(context, out, "skia_use_system_zlib", "true") ||
+      !confirmArgument(context, out, "skia_use_system_freetype2", "true")) {
+    return false;
+  }
+  if (!runChecked({.fProgram = context.fTools.fNinja,
+                   .fArguments = {"-C", out.string(), "-j",
+                                  std::to_string(context.fOptions.fJobs),
+                                  "skia"},
+                   .fDirectory = source,
+                   .fCapture = false},
+                  "building Skia")) {
+    return false;
+  }
+  return installSkia(context, source, out);
 }
 
 } // namespace mandk::steps

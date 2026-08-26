@@ -51,32 +51,29 @@ Run with `--verbose` to see what each checkout weighed.
 The tags in the manifest are a starting point rather than a promise: `pin`
 resolves each one against its remote and says so when there is no such ref.
 
-## Features
+## Libraries
 
-Not every application needs all of it, and what is off is not fetched at
-all -- no checkout, no build, nothing in the prefix.
-
-| feature | | |
-| --- | --- | --- |
-| `graphics` | on | Skia on GLES, and the image codecs and fonts it reads |
-| `audio` | on | OpenAL Soft on Oboe, libsndfile and the codecs behind it |
-| `archive` | on | libzip and liblzma |
-| `dex` | off | R8, for projects that compile a Java bridge to DEX |
+The toolchain is one thing and the libraries built on top of it are another.
+This builds no library unless it is named, and fetches no repository for a
+library it is not building.
 
 ```sh
-minimal-android-ndk --without graphics --without audio build
+minimal-android-ndk list                       # what can be built, and what each needs
+minimal-android-ndk build --with skia          # and whatever skia needs
+minimal-android-ndk build --with openal-soft --with libsndfile
+minimal-android-ndk build --all                # everything in the manifest
 ```
 
-leaves the sysroot, the API stubs, the C++ runtimes and zlib: a toolchain
-that compiles for Android and nothing more. A feature name that does not
-exist is refused rather than ignored, because a misspelt `--without` that is
-ignored looks exactly like one that worked.
+`--with skia` pulls in zlib, libpng, libjpeg-turbo, libwebp and freetype,
+because that is what Skia is configured against. Nothing else comes with it:
+another renderer, another set of libraries, and none of these are built.
 
-Turning a feature off cannot quietly take a library out from under something
-that is still being built: a package that needs one belonging to a feature
-that is off is an error, naming both.
+The list is the manifest, so adding a library is an entry in it rather than a
+change to the program: where its source is, which builder it uses, what to
+pass that builder, what it needs, and what has to be in the prefix when it is
+done. A name that is not a package is refused rather than ignored.
 
-## What it does so far
+## What it does so far## What it does so far
 
 | step | |
 | --- | --- |
@@ -85,15 +82,14 @@ that is off is an error, naming both.
 | `sysroot-headers` | assemble `usr/include` from the platform checkouts |
 | `api-stubs` | generate the link stubs with `ndkstubgen` and verify them |
 | `toolchain-file` | write the CMake toolchain file the dependencies use |
-| `third-party` | build the dependencies into the prefix, each a static library |
-| `skia` | build Ganesh for GLES against those dependencies |
+| `third-party` | build the libraries that were asked for, into the prefix |
 | `hashes` | record the commits and the digests of what was produced |
 
 `minimal-android-ndk plan` also lists the steps that are declared and not
 implemented yet: `compiler-rt`, `runtimes`, `framework-res` and `apksigner`.
 They refuse to run rather than reporting a success they did not have.
 
-**Skia is given the libraries built here.** zlib, libpng, libjpeg-turbo,
+**Skia, when it is asked for, is given the libraries built here.** zlib, libpng, libjpeg-turbo,
 libwebp and freetype are built for the target like every other dependency,
 and Skia is configured with `skia_use_system_*` so it links those instead of
 the copies in its own `third_party/externals`. Its dependency sync is then

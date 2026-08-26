@@ -19,8 +19,10 @@ export namespace mandk::steps {
     return context.baseKey();
   };
   step.fRun = [](Context &context) {
+    const std::set<std::string> needed =
+        context.fManifest.neededSources(context.fPackages);
     const std::vector<std::string> unpinned =
-        context.fManifest.unpinned(context.fFeatures);
+        context.fManifest.unpinned(needed);
     if (!unpinned.empty()) {
       log::error("these sources have no commit: {}",
                  [&unpinned] {
@@ -34,9 +36,9 @@ export namespace mandk::steps {
       return false;
     }
     for (const Source &source : context.fManifest.fSources) {
-      if (!context.wants(source.fFeature)) {
-        log::debug("{} belongs to {}, which is off", source.fName,
-                   source.fFeature);
+      if (!needed.contains(source.fName)) {
+        log::debug("{} is not read by anything that was asked for",
+                   source.fName);
         continue;
       }
       const std::filesystem::path destination =
@@ -114,13 +116,8 @@ export namespace mandk::steps {
       }
     }
     if (!source) {
-      if (!context.wants("graphics")) {
-        log::debug("no cpu-features.c, and nothing that needs it is on");
-      } else {
-        log::error("cpu-features.c is in none of the checkouts; Skia's "
-                   "Android build compiles it");
-        return false;
-      }
+      log::warn("no cpu-features.c in any checkout; a build that compiles it "
+                "will not find it here");
     }
     if (source) {
       std::filesystem::create_directories(features, code);

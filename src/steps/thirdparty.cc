@@ -7,6 +7,7 @@ import mandk.log;
 import mandk.manifest;
 import mandk.plan;
 import mandk.sha256;
+import mandk.steps.skia;
 
 export namespace mandk::steps {
 
@@ -37,14 +38,6 @@ packageOrder(const Context &context) {
         log::error("{} needs {}, which is not a package", package->fName, need);
         return false;
       }
-      // Turning a feature off cannot quietly take a library out from under
-      // something that is still being built.
-      if (!context.wants(found->second->fFeature)) {
-        log::error("{} needs {}, which is in {} -- and {} is off",
-                   package->fName, need, found->second->fFeature,
-                   found->second->fFeature);
-        return false;
-      }
       if (!self(found->second, self)) {
         return false;
       }
@@ -55,9 +48,7 @@ packageOrder(const Context &context) {
     return true;
   };
   for (const Package &package : manifest.fPackages) {
-    if (!context.wants(package.fFeature)) {
-      log::debug("{} belongs to {}, which is off", package.fName,
-                 package.fFeature);
+    if (!context.wants(package.fName)) {
       continue;
     }
     if (!visit(&package, visit)) {
@@ -87,6 +78,8 @@ packageOrder(const Context &context) {
   } else if (package.fBuilder == "autotools") {
     built = build::autotoolsPackage(context, package.fName, source,
                                     package.fOptions);
+  } else if (package.fBuilder == "skia") {
+    built = buildSkia(context, package);
   } else {
     log::error("{} asks for a builder called {}, which does not exist",
                package.fName, package.fBuilder);
@@ -108,13 +101,15 @@ packageOrder(const Context &context) {
 [[nodiscard]] inline Step thirdParty() {
   Step step;
   step.fName = "third-party";
-  step.fSummary = "build the dependencies into the prefix, each as a static "
-                  "library";
-  step.fNeeds = {"runtimes", "toolchain-file"};
+  step.fSummary = "build the libraries that were asked for, into the prefix";
+  step.fNeeds = {"runtimes", "toolchain-file", "ndk-compat"};
   step.fKey = [](const Context &context) -> std::optional<std::string> {
     Sha256 hash;
     hash.update(context.baseKey());
     for (const Package &package : context.fManifest.fPackages) {
+      if (!context.wants(package.fName)) {
+        continue;
+      }
       hash.update(package.fName);
       hash.update(package.fBuilder);
       for (const std::string &option : package.fOptions) {

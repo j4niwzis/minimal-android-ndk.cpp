@@ -25,9 +25,6 @@ export namespace mandk::steps {
 
     CopyReport report;
     for (const HeaderRule &rule : context.fManifest.fHeaders) {
-      if (!context.wants(rule.fFeature)) {
-        continue;
-      }
       const std::filesystem::path root =
           context.fLayout.sourceOf(rule.fSource);
       std::vector<std::filesystem::path> from =
@@ -57,9 +54,6 @@ export namespace mandk::steps {
     // than a compiler error a hundred steps later.
     bool complete = true;
     for (const HeaderRule &rule : context.fManifest.fHeaders) {
-      if (!context.wants(rule.fFeature)) {
-        continue;
-      }
       for (const std::string &required : rule.fRequire) {
         if (!std::filesystem::exists(include / required, code)) {
           log::error("usr/include/{} is missing after the rule for {}",

@@ -9,7 +9,6 @@ import mandk.process;
 import mandk.steps.hashes;
 import mandk.steps.headers;
 import mandk.steps.planned;
-import mandk.steps.skia;
 import mandk.steps.sources;
 import mandk.steps.stubs;
 import mandk.steps.thirdparty;
@@ -27,7 +26,6 @@ using namespace mandk;
   plan.add(steps::apiStubs());
   plan.add(toolchainFile());
   plan.add(steps::thirdParty());
-  plan.add(steps::skia());
   for (Step &step : steps::remaining()) {
     plan.add(std::move(step));
   }
@@ -42,12 +40,15 @@ void usage() {
   minimal-android-ndk plan                   show the steps, in the order they run
   minimal-android-ndk build [STEP...]        run the steps (default: every ready one)
   minimal-android-ndk hashes                 record what was built and from what
+  minimal-android-ndk list                   the libraries that can be built
   minimal-android-ndk env                    print the environment and the CMake flags
 
-Features
-  --with NAME       build this feature as well
-  --without NAME    do not build it, and do not fetch what only it needs
-                    (`plan` lists them and says which are on)
+Libraries
+  --with NAME       build this library, and whatever it needs
+  --all             build every library in the manifest
+                    (`list` shows them; nothing is built unless it is asked
+                    for, and no repository is fetched for a library that is
+                    not being built)
 
 Options
   --root DIR        where the toolchain is built   (default $ANDROID_FREE,
@@ -71,7 +72,7 @@ struct Invocation {
   std::string fCommand;
   std::vector<std::string> fRest;
   std::vector<std::string> fWith;
-  std::vector<std::string> fWithout;
+  bool fAll = false;
   std::filesystem::path fRoot;
   std::filesystem::path fManifest;
   std::string fPlatform;
@@ -149,10 +150,8 @@ struct Invocation {
       const auto given = value(argument);
       if (!given) return std::nullopt;
       invocation.fWith.push_back(*given);
-    } else if (argument == "--without") {
-      const auto given = value(argument);
-      if (!given) return std::nullopt;
-      invocation.fWithout.push_back(*given);
+    } else if (argument == "--all") {
+      invocation.fAll = true;
     } else if (argument == "--force") {
       invocation.fOptions.fForce = true;
     } else if (argument == "--dry-run") {
@@ -177,49 +176,35 @@ struct Invocation {
   return invocation;
 }
 
-// The features that are on: the ones the manifest turns on by default,
-// changed by what was asked for. A name that is not a feature is refused
-// rather than ignored -- a misspelt --without would otherwise look like it
-// worked and build everything.
+// What is going to be built: the libraries named, plus everything they need.
+// Nothing is built by default -- a toolchain is what this produces, and which
+// libraries belong on top of it is not something it can guess.
 [[nodiscard]] std::optional<std::set<std::string>>
-chooseFeatures(const Manifest &manifest, std::span<const std::string> with,
-               std::span<const std::string> without) {
-  std::set<std::string> known;
-  std::set<std::string> chosen;
-  for (const Feature &feature : manifest.fFeatures) {
-    known.insert(feature.fName);
-    if (feature.fDefault) {
-      chosen.insert(feature.fName);
+choosePackages(const Manifest &manifest, std::span<const std::string> with,
+               bool all) {
+  std::vector<std::string> requested(with.begin(), with.end());
+  if (all) {
+    for (const Package &package : manifest.fPackages) {
+      requested.push_back(package.fName);
     }
   }
-  for (const std::string &name : with) {
-    if (!known.contains(name)) {
-      log::error("there is no feature called {}", name);
-      return std::nullopt;
-    }
-    chosen.insert(name);
-  }
-  for (const std::string &name : without) {
-    if (!known.contains(name)) {
-      log::error("there is no feature called {}", name);
-      return std::nullopt;
-    }
-    chosen.erase(name);
-  }
-  return chosen;
+  return manifest.closure(requested);
 }
 
-void printFeatures(const Context &context) {
-  if (context.fManifest.fFeatures.empty()) {
-    return;
+void printPackages(const Context &context) {
+  std::cout << std::format("  {:<5} {:<16} {}\n", "", "library", "needs");
+  for (const Package &package : context.fManifest.fPackages) {
+    std::string needs;
+    for (const std::string &need : package.fNeeds) {
+      needs += needs.empty() ? need : ", " + need;
+    }
+    std::cout << std::format("  {:<5} {:<16} {}\n",
+                             context.wants(package.fName) ? "yes" : "",
+                             package.fName, needs);
+    if (!package.fNote.empty()) {
+      std::cout << std::format("        {}\n", package.fNote);
+    }
   }
-  std::cout << "features\n";
-  for (const Feature &feature : context.fManifest.fFeatures) {
-    std::cout << std::format("  {:<4} {:<10} {}\n",
-                             context.wants(feature.fName) ? "on" : "off",
-                             feature.fName, feature.fSummary);
-  }
-  std::cout << '\n';
 }
 
 void printPlan(const Plan &plan, const Context &context) {
@@ -233,8 +218,7 @@ void printPlan(const Plan &plan, const Context &context) {
     const std::optional<std::string> key =
         step->fKey ? step->fKey(context) : std::nullopt;
     const std::string_view state =
-        !context.wants(step->fFeature)         ? "off"
-        : !step->fReady                        ? "planned"
+        !step->fReady                          ? "planned"
         : context.fJournal.upToDate(name, key) ? "done"
         : !key                                 ? "always"
                                                : "todo";
@@ -286,9 +270,9 @@ int main(int argc, char **argv) {
   std::filesystem::create_directories(layout.logs(), code);
   log::sink().setTranscript(layout.logs() / "minimal-android-ndk.log");
 
-  const std::optional<std::set<std::string>> features = chooseFeatures(
-      *manifest, invocation->fWith, invocation->fWithout);
-  if (!features) {
+  const std::optional<std::set<std::string>> packages =
+      choosePackages(*manifest, invocation->fWith, invocation->fAll);
+  if (!packages) {
     return 1;
   }
 
@@ -297,7 +281,7 @@ int main(int argc, char **argv) {
                   .fJournal = Journal(layout.stamps()),
                   .fOptions = invocation->fOptions,
                   .fTools = invocation->fTools,
-                  .fFeatures = *features};
+                  .fPackages = *packages};
 
   const Plan plan = wholePlan();
   const std::string &command = invocation->fCommand;
@@ -307,8 +291,15 @@ int main(int argc, char **argv) {
                              layout.root().string(),
                              invocation->fManifest.string(),
                              context.target().fTriple, context.target().fApi);
-    printFeatures(context);
     printPlan(plan, context);
+    if (!context.fPackages.empty()) {
+      std::cout << std::format("\n{} libraries asked for\n",
+                               context.fPackages.size());
+    }
+    return 0;
+  }
+  if (command == "list") {
+    printPackages(context);
     return 0;
   }
   if (command == "env") {
@@ -328,8 +319,7 @@ int main(int argc, char **argv) {
       goals = {"hashes"};
     } else if (goals.empty()) {
       for (const Step &step : plan.steps()) {
-        if (step.fReady && step.fName != "hashes" &&
-            context.wants(step.fFeature)) {
+        if (step.fReady && step.fName != "hashes") {
           goals.push_back(step.fName);
         }
       }
