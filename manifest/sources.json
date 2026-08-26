@@ -66,10 +66,9 @@
     {
       "name": "ndk",
       "url": "https://android.googlesource.com/platform/ndk",
-      "project": "platform/ndk",
       "commit": "",
       "paths": ["meta", "sources"],
-      "note": "meta/platforms.json for the API map, and the native app glue the application links"
+      "note": "meta/platforms.json for the API map, and the native app glue the application links. Not part of a platform release: the NDK is built from its own manifest branch, so a platform tag does not name a revision for it. Set ref to pin it to something other than the head of its default branch"
     },
     {
       "name": "soong",
