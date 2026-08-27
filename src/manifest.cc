@@ -108,6 +108,7 @@ public:
     if (document.contains("platform")) {
       manifest.fPlatformTag = document["platform"].get<std::string>();
     }
+    manifest.fTargetSdk = document.value("target-sdk", manifest.fTargetSdk);
     if (document.contains("target")) {
       const json &target = document["target"];
       manifest.fTarget.fTriple =
@@ -198,6 +199,7 @@ public:
   [[nodiscard]] bool save() const {
     json document;
     document["platform"] = fPlatformTag;
+    document["target-sdk"] = fTargetSdk;
     document["target"] = {{"triple", fTarget.fTriple},
                           {"arch", fTarget.fArch},
                           {"abi", fTarget.fAbi},
@@ -378,6 +380,9 @@ public:
 
   Target fTarget;
   std::string fPlatformTag;
+  // What an APK says it was built for, which is not the API the code is
+  // compiled against.
+  int fTargetSdk = 35;
   std::vector<Source> fSources;
   std::vector<StubLibrary> fStubs;
   std::vector<HeaderRule> fHeaders;

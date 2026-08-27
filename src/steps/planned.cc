@@ -20,9 +20,6 @@ export namespace mandk::steps {
 
 [[nodiscard]] inline std::vector<Step> remaining() {
   return {
-      planned("framework-res",
-              "link the platform resource package that aapt2 is given with -I",
-              {"sources"}),
   };
 }
 

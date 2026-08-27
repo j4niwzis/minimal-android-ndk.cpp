@@ -31,6 +31,9 @@ struct Tools {
   std::string fJavac = "javac";
   std::string fJar = "jar";
   std::string fJava = "java";
+  std::string fKeytool = "keytool";
+  std::string fAapt2 = "aapt2";
+  std::string fZipalign = "zipalign";
   std::string fNinja = "ninja";
   std::string fGn = "gn";
   std::string fPkgConfig = "pkg-config";

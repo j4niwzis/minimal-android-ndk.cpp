@@ -86,12 +86,10 @@ done. A name that is not a package is refused rather than ignored.
 | `toolchain-file` | write the CMake toolchain file the dependencies use |
 | `third-party` | build the libraries that were asked for, into the prefix |
 | `apksigner` | build the signer, the one APK tool a distribution has not got |
+| `framework-res` | link the platform's resource package |
+| `apk` | build, package and sign an APK out of all of it |
 | `check` | build something with the toolchain and read what came out |
 | `hashes` | record the commits and the digests of what was produced |
-
-`minimal-android-ndk plan` also lists the one step that is declared and not
-implemented yet: `framework-res`. It refuses to run rather than reporting a
-success it did not have.
 
 Everything else an APK needs comes from the distribution -- `aapt2`,
 `zipalign`, `keytool`, a Java runtime -- except the signer, which is an AOSP
