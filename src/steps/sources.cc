@@ -123,14 +123,24 @@ export namespace mandk::steps {
       std::filesystem::create_directories(features, code);
       for (const std::string_view name : {"cpu-features.c", "cpu-features.h"}) {
         const std::filesystem::path from = source->parent_path() / name;
+        const std::filesystem::path to = features / name;
         if (!std::filesystem::exists(from, code)) {
           continue;
         }
+        // The two can be the same file: this tree is inside the same root as
+        // the checkouts, and a copy onto itself is reported as the file
+        // already existing, which reads like a stale copy and is not one.
+        std::error_code same;
+        if (std::filesystem::exists(to, same) &&
+            std::filesystem::equivalent(from, to, same)) {
+          continue;
+        }
+        std::filesystem::remove(to, code);
         std::filesystem::copy_file(
-            from, features / name,
-            std::filesystem::copy_options::overwrite_existing, code);
+            from, to, std::filesystem::copy_options::overwrite_existing, code);
         if (code) {
-          log::error("cannot copy {}: {}", from.string(), code.message());
+          log::error("cannot copy {} to {}: {}", from.string(), to.string(),
+                     code.message());
           return false;
         }
       }
