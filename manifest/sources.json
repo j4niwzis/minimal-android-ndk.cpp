@@ -56,6 +56,14 @@
       "note": "OpenSL ES headers and symbol map"
     },
     {
+      "name": "nativehelper",
+      "url": "https://android.googlesource.com/platform/libnativehelper",
+      "project": "platform/libnativehelper",
+      "commit": "",
+      "paths": ["include_jni"],
+      "note": "jni.h, which android/input.h and everything else that hands a Java object to native code includes"
+    },
+    {
       "name": "logging",
       "url": "https://android.googlesource.com/platform/system/logging",
       "project": "platform/system/logging",
@@ -368,6 +376,11 @@
       "find": "libc/kernel/uapi/asm-arm64/asm",
       "into": "asm",
       "require": ["asm/types.h"]
+    },
+    {
+      "source": "nativehelper",
+      "find": "include_jni",
+      "require": ["jni.h"]
     },
     {
       // First of the android/ rules, because a header that is already there
