@@ -53,10 +53,17 @@ struct Context {
 
   [[nodiscard]] const Target &target() const { return fManifest.fTarget; }
 
+  // What this program is. A step remembers that it finished, and a step that
+  // has been rewritten since is a different step -- so a new build of the
+  // tool invalidates what the old one recorded, rather than the tool
+  // skipping work it no longer knows it did.
+  std::string fSelf;
+
   // Everything a step's key starts from: which platform sources are pinned
   // and what is being built for.
   [[nodiscard]] std::string baseKey() const {
     Sha256 hash;
+    hash.update(fSelf);
     hash.update(fManifest.fTarget.fTriple);
     hash.update(std::to_string(fManifest.fTarget.fApi));
     hash.update(fManifest.fTarget.fArch);

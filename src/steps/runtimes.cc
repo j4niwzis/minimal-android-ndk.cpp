@@ -35,45 +35,21 @@ crossArguments(const Context &context, const std::filesystem::path &prefix) {
   };
 }
 
-// A build directory remembers the source directory it was made for, and
-// CMake refuses to reuse it for a different one -- rightly, since the cache
-// in it is about the other source. What it cannot know is that this
-// directory is scratch, so the answer is to throw it away rather than to
-// stop and ask somebody to.
-inline void forgetMismatchedCache(const std::filesystem::path &build,
-                                  const std::filesystem::path &source) {
-  const std::filesystem::path cache = build / "CMakeCache.txt";
-  std::error_code code;
-  if (!std::filesystem::exists(cache, code)) {
-    return;
-  }
-  std::ifstream file(cache);
-  std::string line;
-  while (std::getline(file, line)) {
-    constexpr std::string_view kHome = "CMAKE_HOME_DIRECTORY:INTERNAL=";
-    if (!line.starts_with(kHome)) {
-      continue;
-    }
-    const std::filesystem::path was(line.substr(kHome.size()));
-    if (std::filesystem::weakly_canonical(was, code) ==
-        std::filesystem::weakly_canonical(source, code)) {
-      return;
-    }
-    log::info("{} was configured for {}; starting it again", build.string(),
-              was.string());
-    file.close();
-    std::filesystem::remove_all(build, code);
-    return;
-  }
-}
-
 [[nodiscard]] inline bool
 runCmake(const Context &context, std::string_view what,
          const std::filesystem::path &source,
          const std::filesystem::path &build,
          std::vector<std::string> arguments) {
+  // The build directory is thrown away and made again.
+  //
+  // A cache keeps what is no longer asked for -- dropping a -D from the
+  // command line does not drop it from the directory -- and a directory made
+  // for another source refuses to be reused at all. Both are real, and
+  // neither is worth a mechanism: this is scratch, these builds are short,
+  // and a tool that is never wrong about what it configured is worth more
+  // than one that rebuilds a little less.
   std::error_code code;
-  forgetMismatchedCache(build, source);
+  std::filesystem::remove_all(build, code);
   std::filesystem::create_directories(build, code);
   std::vector<std::string> configure{"-S", source.string(), "-B",
                                      build.string(), "-G", "Ninja"};

@@ -365,12 +365,29 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  // The program itself, as size and time. A step that finished before this
+  // build of the tool existed was finished by a different program.
+  std::string self;
+  {
+    std::error_code code;
+    std::filesystem::path binary =
+        std::filesystem::read_symlink("/proc/self/exe", code);
+    if (code || binary.empty()) {
+      binary = argv[0];
+    }
+    const auto size = std::filesystem::file_size(binary, code);
+    const auto when = std::filesystem::last_write_time(binary, code);
+    self = std::format("{}|{}|{}", binary.string(), size,
+                       when.time_since_epoch().count());
+  }
+
   Context context{.fLayout = layout,
                   .fManifest = *manifest,
                   .fJournal = Journal(layout.stamps()),
                   .fOptions = invocation->fOptions,
                   .fTools = tools,
-                  .fPackages = *packages};
+                  .fPackages = *packages,
+                  .fSelf = self};
 
   const Plan plan = wholePlan();
   const std::string &command = invocation->fCommand;
