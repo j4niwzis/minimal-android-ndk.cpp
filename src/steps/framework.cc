@@ -112,10 +112,11 @@ featureFlags(const std::filesystem::path &manifest) {
       return false;
     }
 
-    // --package-id 0x01 is the platform's own package identifier, and aapt2
-    // will only accept an identifier below 0x7f when told the reservation is
-    // deliberate. It cannot be combined with --shared-lib, which is a
-    // different thing that also sounds right.
+    // -x is aapt2's flag for "this is the platform": it means the package
+    // identifier 0x01, which is the platform's own and which a regular link
+    // will not accept. --allow-reserved-package-id is a different thing that
+    // sounds right and is not -- it is for an application with a reserved
+    // identifier and a min-sdk of 26 or lower -- and so is --shared-lib.
     //
     // The minimum SDK is 26 or higher because the platform's own icons are
     // adaptive icons, and aapt2 rejects those for anything older.
@@ -124,7 +125,7 @@ featureFlags(const std::filesystem::path &manifest) {
     std::vector<std::string> arguments{
         "link", "-o", apk.string(), "--manifest", manifest.string(),
         "-R", compiled.string(),
-        "--package-id", "0x01", "--allow-reserved-package-id",
+        "-x",
         "--auto-add-overlay", "--no-version-vectors",
         "--min-sdk-version", "26",
         "--target-sdk-version", std::to_string(context.fManifest.fTargetSdk),
