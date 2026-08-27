@@ -121,7 +121,42 @@ runCmake(const Context &context, std::string_view what,
       return false;
     }
 
+    // A resource directory is not only the builtins. It is also where the
+    // compiler keeps its own headers -- stddef.h, stdarg.h, the ones no
+    // library provides -- and anything given -resource-dir is expected to
+    // have them. Ours held an archive and nothing else, so the first
+    // #include <stddef.h> in the runtimes found nothing.
+    //
+    // So the compiler's own is copied in first and the builtins are added to
+    // it, rather than the other way round.
     const std::filesystem::path resource = context.fLayout.clangResource();
+    const CommandResult own =
+        run({.fProgram = context.fTools.fClang,
+             .fArguments = {"-print-resource-dir"}});
+    if (!own.ok()) {
+      log::error("{} will not say where its resource directory is",
+                 context.fTools.fClang);
+      return false;
+    }
+    const std::filesystem::path from(firstLine(own.fOutput));
+    std::error_code code;
+    if (!std::filesystem::is_directory(from, code)) {
+      log::error("{} says its resource directory is {}, and that is not a "
+                 "directory",
+                 context.fTools.fClang, from.string());
+      return false;
+    }
+    CopyReport carried;
+    copyTree(from, resource, {}, carried);
+    log::info("{} files from {}", carried.fCopied, from.string());
+    if (!std::filesystem::exists(resource / "include" / "stddef.h", code)) {
+      log::error("{} has no include/stddef.h after copying {}, and a resource "
+                 "directory without the compiler's own headers is one nothing "
+                 "can compile against",
+                 resource.string(), from.string());
+      return false;
+    }
+
     std::vector<std::string> arguments =
         crossArguments(context, resource);
     for (const std::string &extra :
