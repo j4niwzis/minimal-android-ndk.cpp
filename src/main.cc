@@ -271,22 +271,23 @@ int main(int argc, char **argv) {
   // A tool that is called by one name on one distribution and another
   // elsewhere is worth settling before anything uses it, so that a missing
   // one is reported as missing rather than as a file that could not be read.
-  for (const auto &[configured, alternatives] :
-       std::initializer_list<std::pair<std::string *, std::vector<std::string>>>{
-           {&invocation->fTools.fReadelf, {"llvm-readelf", "readelf"}},
-           {&invocation->fTools.fAr, {"llvm-ar", "ar"}},
-           {&invocation->fTools.fRanlib, {"llvm-ranlib", "ranlib"}}}) {
-    if (haveProgram(*configured)) {
-      continue;
+  Tools tools = invocation->fTools;
+  const auto settle = [](std::string &configured,
+                         std::initializer_list<std::string_view> alternatives) {
+    if (haveProgram(configured)) {
+      return;
     }
-    for (const std::string &other : alternatives) {
+    for (const std::string_view other : alternatives) {
       if (haveProgram(other)) {
-        log::info("{} is not on PATH; using {}", *configured, other);
-        *configured = other;
-        break;
+        log::info("{} is not on PATH; using {}", configured, other);
+        configured = std::string(other);
+        return;
       }
     }
-  }
+  };
+  settle(tools.fReadelf, {"llvm-readelf", "readelf"});
+  settle(tools.fAr, {"llvm-ar", "ar"});
+  settle(tools.fRanlib, {"llvm-ranlib", "ranlib"});
 
   const Layout layout(invocation->fRoot);
   std::error_code code;
@@ -303,7 +304,7 @@ int main(int argc, char **argv) {
                   .fManifest = *manifest,
                   .fJournal = Journal(layout.stamps()),
                   .fOptions = invocation->fOptions,
-                  .fTools = invocation->fTools,
+                  .fTools = tools,
                   .fPackages = *packages};
 
   const Plan plan = wholePlan();
@@ -348,8 +349,7 @@ int main(int argc, char **argv) {
       }
     }
     for (const std::string &program :
-         {invocation->fTools.fClang, invocation->fTools.fPython,
-          std::string("git")}) {
+         {tools.fClang, tools.fPython, std::string("git")}) {
       if (!haveProgram(program)) {
         log::error("{} is not on PATH", program);
         return 1;
