@@ -303,7 +303,8 @@ runCmake(const Context &context, std::string_view what,
         complete = false;
       }
     }
-    log::info("{} headers and {} archives", report.fCopied, archives);
+    log::info("{} headers copied, {} already there, {} archives",
+              report.fCopied, report.fSkipped, archives);
     return complete;
   };
   return step;
