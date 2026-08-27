@@ -103,6 +103,10 @@ struct Invocation {
   // Beside where the tool was run rather than inside what it produces: a
   // scratch tree in the middle of a toolchain is hard to tell from the
   // toolchain.
+  // As many as the machine has. One was a placeholder that nobody chose and
+  // everybody paid for.
+  invocation.fOptions.fJobs =
+      static_cast<int>(std::max(1u, std::thread::hardware_concurrency()));
   invocation.fBuild = std::filesystem::current_path() / "ndk";
   if (const char *const set = std::getenv("MANDK_BUILD"); set != nullptr) {
     invocation.fBuild = set;

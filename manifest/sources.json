@@ -359,6 +359,13 @@
     },
     {
       "source": "bionic",
+      "note": "bionic keeps two uapi trees: the scrubbed kernel headers, and Android's own additions beside them. linux/stddef.h is in the first and the linux/compiler_types.h it includes is in the second, so a sysroot with only one of them compiles nothing that reaches for stddef",
+      "find": "libc/kernel/android/uapi",
+      "into": "",
+      "require": ["linux/compiler_types.h", "linux/compiler.h"]
+    },
+    {
+      "source": "bionic",
       "find": "libc/kernel/uapi/asm-arm64/asm",
       "into": "asm",
       "require": ["asm/types.h"]
