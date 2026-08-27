@@ -52,6 +52,7 @@ set(mandk_modules
   src/steps/sources.cc
   src/steps/headers.cc
   src/steps/stubs.cc
+  src/steps/runtimes.cc
   src/steps/thirdparty.cc
   src/steps/skia.cc
   src/steps/planned.cc

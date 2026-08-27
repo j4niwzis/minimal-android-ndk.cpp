@@ -346,7 +346,9 @@
       "source": "bionic",
       "find": "libc/include",
       "into": "",
-      "require": ["stdio.h", "stdlib.h", "string.h", "pthread.h", "dlfcn.h"]
+      "note": "bionic has no libm/include: the math headers are here too, next to the rest",
+      "require": ["stdio.h", "stdlib.h", "string.h", "pthread.h", "dlfcn.h",
+                  "math.h", "fenv.h", "complex.h"]
     },
     {
       "source": "bionic",
@@ -360,12 +362,6 @@
       "find": "libc/kernel/uapi/asm-arm64/asm",
       "into": "asm",
       "require": ["asm/types.h"]
-    },
-    {
-      "source": "bionic",
-      "find": "libm/include",
-      "into": "",
-      "require": ["math.h"]
     },
     {
       "source": "native",

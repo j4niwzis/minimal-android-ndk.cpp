@@ -81,13 +81,27 @@ done. A name that is not a package is refused rather than ignored.
 | `ndk-compat` | native_app_glue and cpu-features where the builds look for them |
 | `sysroot-headers` | assemble `usr/include` from the platform checkouts |
 | `api-stubs` | generate the link stubs with `ndkstubgen` and verify them |
+| `compiler-rt` | build the builtins libc++ is going to need |
+| `runtimes` | build libc++, libc++abi and libunwind into the sysroot |
 | `toolchain-file` | write the CMake toolchain file the dependencies use |
 | `third-party` | build the libraries that were asked for, into the prefix |
 | `hashes` | record the commits and the digests of what was produced |
 
 `minimal-android-ndk plan` also lists the steps that are declared and not
-implemented yet: `compiler-rt`, `runtimes`, `framework-res` and `apksigner`.
-They refuse to run rather than reporting a success they did not have.
+implemented yet: `framework-res` and `apksigner`. They refuse to run rather
+than reporting a success they did not have.
+
+The toolchain proper -- everything a library needs before it can be built at
+all -- is the first six steps:
+
+```sh
+minimal-android-ndk build toolchain-file
+```
+
+which pulls in the sources, the headers, the stubs, the builtins and the
+runtimes on the way. After that the target has a compiler, a sysroot to
+compile against and a C++ standard library, including the module sources and
+the `libc++.modules.json` that `import std` needs.
 
 **Skia, when it is asked for, is given the libraries built here.** zlib, libpng, libjpeg-turbo,
 libwebp and freetype are built for the target like every other dependency,

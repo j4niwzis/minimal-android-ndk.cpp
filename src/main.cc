@@ -9,6 +9,7 @@ import mandk.process;
 import mandk.steps.hashes;
 import mandk.steps.headers;
 import mandk.steps.planned;
+import mandk.steps.runtimes;
 import mandk.steps.sources;
 import mandk.steps.stubs;
 import mandk.steps.thirdparty;
@@ -25,6 +26,8 @@ using namespace mandk;
   plan.add(steps::headers());
   plan.add(steps::apiStubs());
   plan.add(toolchainFile());
+  plan.add(steps::compilerRt());
+  plan.add(steps::runtimes());
   plan.add(steps::thirdParty());
   for (Step &step : steps::remaining()) {
     plan.add(std::move(step));
