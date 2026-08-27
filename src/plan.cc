@@ -11,6 +11,9 @@ export namespace mandk {
 
 struct Options {
   bool fForce = false;
+  // Ignore that this program is not the one that recorded the stamps. Said
+  // by somebody who knows what they changed, and wrong whenever they do not.
+  bool fReuse = false;
   bool fDryRun = false;
   bool fKeepGoing = false;
   int fJobs = 1;
@@ -69,7 +72,9 @@ struct Context {
   // and what is being built for.
   [[nodiscard]] std::string baseKey() const {
     Sha256 hash;
-    hash.update(fSelf);
+    if (!fOptions.fReuse) {
+      hash.update(fSelf);
+    }
     hash.update(fManifest.fTarget.fTriple);
     hash.update(std::to_string(fManifest.fTarget.fApi));
     hash.update(fManifest.fTarget.fArch);

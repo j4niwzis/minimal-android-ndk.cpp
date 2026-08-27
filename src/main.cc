@@ -74,6 +74,10 @@ Options
   --readelf NAME    stub verifier                  (default llvm-readelf)
   --llvm-bin DIR    where llvm-ar and llvm-ranlib are, when not on PATH
   --jobs N, -j N    parallel jobs for the dependency builds
+  --reuse           trust stamps written by an older build of this program.
+                    Every step is normally redone when the program changes,
+                    because a step that finished was finished by a different
+                    program; this says you know what you changed.
   --force           run steps even when their stamp says they are done
   --dry-run         say what would run, run nothing
   --keep-going      do not stop at the first failed step
@@ -181,6 +185,8 @@ struct Invocation {
       invocation.fWith.push_back(*given);
     } else if (argument == "--all") {
       invocation.fAll = true;
+    } else if (argument == "--reuse") {
+      invocation.fOptions.fReuse = true;
     } else if (argument == "--force") {
       invocation.fOptions.fForce = true;
     } else if (argument == "--dry-run") {
