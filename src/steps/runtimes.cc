@@ -8,6 +8,7 @@ import mandk.plan;
 import mandk.process;
 import mandk.search;
 import mandk.sha256;
+import mandk.text;
 
 export namespace mandk::steps {
 
@@ -288,7 +289,34 @@ runCmake(const Context &context, std::string_view what,
           std::string("-DLIBCXX_INCLUDE_TESTS=OFF"),
           std::string("-DLIBCXX_INCLUDE_BENCHMARKS=OFF"),
           std::string("-DLIBCXXABI_INCLUDE_TESTS=OFF"),
-          std::string("-DLIBUNWIND_INCLUDE_TESTS=OFF")}) {
+          std::string("-DLIBUNWIND_INCLUDE_TESTS=OFF"),
+          // Answered rather than probed.
+          //
+          // check_library_exists() asks whether -lpthread links, and
+          // CMAKE_TRY_COMPILE_TARGET_TYPE above says a probe is a static
+          // library, which never links. So every question of this kind in
+          // this configure answers yes, including the ones whose true answer
+          // is no, and the yes is not visible anywhere until something is
+          // linked against what was built. libunwind's is #pragma
+          // comment(lib, "pthread") in RWMutex.hpp, which puts the name in
+          // the object's .deplibs and turns up as "unable to find library
+          // from dependent library specifier" in a project that never
+          // mentioned pthreads.
+          //
+          // Android has no libpthread, no librt and no libatomic: threads
+          // and clocks are in libc, and the atomics come from the builtins.
+          // libc++abi's own configuration says as much for Android, and
+          // libunwind's has no Android case at all -- but neither of them is
+          // told this is Android, because nothing here sets
+          // CMAKE_SYSTEM_NAME and CMake's Android support wants an NDK.
+          std::string("-DLIBUNWIND_HAS_PTHREAD_LIB=OFF"),
+          std::string("-DLIBCXX_HAS_PTHREAD_LIB=OFF"),
+          std::string("-DLIBCXXABI_HAS_PTHREAD_LIB=OFF"),
+          std::string("-DLIBCXX_HAS_RT_LIB=OFF"),
+          std::string("-DLIBCXX_HAS_ATOMIC_LIB=OFF"),
+          // These two exist, and are the sysroot's own.
+          std::string("-DLIBUNWIND_HAS_DL_LIB=ON"),
+          std::string("-DLIBCXXABI_HAS_DL_LIB=ON")}) {
       arguments.push_back(extra);
     }
 
@@ -343,6 +371,47 @@ runCmake(const Context &context, std::string_view what,
     }
     log::info("{} headers copied, {} already there, {} archives",
               report.fCopied, report.fSkipped, archives);
+    if (!complete) {
+      return false;
+    }
+
+    // What the archives will ask the linker for.
+    //
+    // An object can carry the name of a library it needs, and the linker
+    // adds it to the link without anyone writing it down. A name that is not
+    // in this sysroot is a link that fails in whatever project first uses
+    // the toolchain, naming a library that project never heard of. It is
+    // known here, so it is said here.
+    for (const std::string_view name :
+         {"libc++.a", "libc++abi.a", "libunwind.a"}) {
+      const std::filesystem::path archive = libraries / name;
+      const CommandResult dump =
+          run({.fProgram = context.fTools.fReadelf,
+               .fArguments = {"--string-dump=.deplibs", archive.string()}});
+      std::set<std::string> asked;
+      for (const std::string &line : split(dump.fOutput, '\n')) {
+        const std::size_t close = line.find(']');
+        if (line.starts_with("[") && close != std::string::npos) {
+          const std::string wanted(trim(line.substr(close + 1)));
+          if (!wanted.empty()) {
+            asked.insert(wanted);
+          }
+        }
+      }
+      for (const std::string &wanted : asked) {
+        if (std::filesystem::exists(
+                libraries / std::format("lib{}.so", wanted), code) ||
+            std::filesystem::exists(
+                libraries / std::format("lib{}.a", wanted), code)) {
+          continue;
+        }
+        log::error("{} tells the linker to link lib{} and this sysroot has "
+                   "no lib{}. Whatever built it decided that library exists; "
+                   "it does not.",
+                   name, wanted, wanted);
+        complete = false;
+      }
+    }
     return complete;
   };
   return step;
