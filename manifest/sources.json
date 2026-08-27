@@ -370,6 +370,15 @@
       "require": ["asm/types.h"]
     },
     {
+      // First of the android/ rules, because a header that is already there
+      // is kept and the rest are ignored: log.h lives with liblog, and the
+      // one the framework checkouts carry declares less of it.
+      "source": "logging",
+      "find": "liblog/include/android",
+      "into": "android",
+      "require": ["android/log.h"]
+    },
+    {
       "source": "native",
       "find": "include/android",
       "into": "android",
@@ -382,15 +391,6 @@
       "into": "android",
       "all": true,
       "require": ["android/native_activity.h", "android/asset_manager.h", "android/looper.h", "android/configuration.h"]
-    },
-    {
-      // Last of the android/ rules, because these are copied over each other
-      // and the last one wins: log.h lives with liblog, and the one the
-      // framework checkouts carry declares less of it.
-      "source": "logging",
-      "find": "liblog/include/android",
-      "into": "android",
-      "require": ["android/log.h"]
     },
     {
       "source": "native",
