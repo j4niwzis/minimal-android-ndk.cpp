@@ -42,14 +42,16 @@ export namespace mandk::steps {
 // library they belong to. The official NDK ships them prebuilt; there is no
 // reason they cannot be built.
 //
-// Only the shared-library pair. An executable's crtbegin includes bionic's
-// own libc_init_common.h and reaches into the C library's private headers,
-// which is a larger thing to bring in, and an APK's native code is a shared
-// library.
+// The shared-library pair is what an APK's native code needs. The
+// executable pair is built as well, and for one reason: a sysroot that
+// cannot link a program cannot answer a question about a function either.
+// Every CMake check of the form "does this exist" links one, and a
+// toolchain that makes those checks stop at an archive answers yes to all
+// of them.
 [[nodiscard]] inline Step crt() {
   Step step;
   step.fName = "crt";
-  step.fSummary = "build bionic's startup objects for a shared library";
+  step.fSummary = "build bionic's startup objects";
   step.fNeeds = {"sysroot-headers", "api-stubs"};
   step.fKey = [](const Context &context) -> std::optional<std::string> {
     const CommandResult version =
@@ -133,6 +135,39 @@ export namespace mandk::steps {
     }
     if (!compile("crtend_so.S", lib / "crtend_so.o")) {
       return false;
+    }
+
+    // And the executable pair, which is what makes a compiler probe able to
+    // link.
+    //
+    // Without it every CMake check that asks "does this function exist" by
+    // linking has to stop at an archive, and an archive keeps its undefined
+    // symbols: the answer is yes to everything. libzip asked for memcpy_s
+    // that way and got it, and bionic has no Annex K at all.
+    //
+    // crtbegin.c is the same shape as crtbegin_so.c -- a C part and the two
+    // notes -- and reaches into bionic's own headers by relative path,
+    // which is why it is compiled from the checkout rather than against the
+    // sysroot alone. If any of this does not build, the shared pair above
+    // is still there and the toolchain file says probes stop at an archive.
+    const std::filesystem::path dynamicPart = work / "crtbegin.c.o";
+    if (compile("crtbegin.c", dynamicPart) &&
+        runChecked(
+            {.fProgram = context.fTools.fClang,
+             .fArguments = {std::format("--target={}", target.clangTarget()),
+                            "-fuse-ld=lld", "-nostdlib", "-r", "-o",
+                            (lib / "crtbegin_dynamic.o").string(),
+                            dynamicPart.string(), brand.string(), pad.string()}},
+            "combining the three parts of crtbegin_dynamic.o") &&
+        compile("crtend.S", lib / "crtend_android.o")) {
+      log::info("{}", (lib / "crtbegin_dynamic.o").string());
+      log::info("{}", (lib / "crtend_android.o").string());
+    } else {
+      std::filesystem::remove(lib / "crtbegin_dynamic.o", code);
+      std::filesystem::remove(lib / "crtend_android.o", code);
+      log::warn("bionic's executable startup objects did not build here, so "
+                "nothing in this sysroot can link a program: every compiler "
+                "probe that asks by linking will answer yes");
     }
 
     const std::filesystem::path guard = work / "__stack_chk_fail_local.c";

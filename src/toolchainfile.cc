@@ -26,6 +26,36 @@ toolchainFilePath(const Layout &layout) {
     log::error("cannot write {}", path.string());
     return false;
   }
+  // Whether this sysroot can link a program.
+  //
+  // Every CMake check of the form "does this function exist" links one, and
+  // a sysroot without bionic's executable startup objects cannot -- so those
+  // checks are told to stop at an archive, where an undefined symbol is not
+  // an error and the answer is yes to everything. The crt step builds those
+  // objects when it can, and this is where that becomes a fact about the
+  // build rather than a hope.
+  const std::filesystem::path lib = layout.sysrootLib(target);
+  std::error_code exists;
+  const bool linkable =
+      std::filesystem::exists(lib / "crtbegin_dynamic.o", exists) &&
+      std::filesystem::exists(lib / "crtend_android.o", exists);
+  const std::string probes =
+      linkable ? std::string()
+               : std::string("# Nothing in this sysroot can link an "
+                             "executable: bionic's startup objects\n"
+                             "# for one are not in it. Every compiler probe "
+                             "therefore has to stop\n"
+                             "# at an archive, where an undefined symbol is "
+                             "not an error -- which\n"
+                             "# means every question of the form \"does this "
+                             "function exist\" is\n"
+                             "# answered yes.\n"
+                             "set(CMAKE_TRY_COMPILE_TARGET_TYPE "
+                             "STATIC_LIBRARY)\n");
+  if (linkable) {
+    log::info("probes link a program: this sysroot has the startup objects");
+  }
+
   file << std::format(
       "# Written by minimal-android-ndk. Anything edited here is overwritten.\n"
       "\n"
@@ -73,10 +103,7 @@ toolchainFilePath(const Layout &layout) {
       "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)\n"
       "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)\n"
       "\n"
-      "# Nothing in this sysroot can link an executable: the Android CRT\n"
-      "# startup objects are not part of it. Every compiler probe therefore\n"
-      "# has to stop at an archive.\n"
-      "set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)\n"
+      "{11}"
       "\n"
       "# Android keeps the pthread functions in libc, and a probe that only\n"
       "# archives cannot notice that -lpthreads does not exist. So FindThreads\n"
@@ -98,7 +125,7 @@ toolchainFilePath(const Layout &layout) {
       context.fTools.fLlvmBin.empty()
           ? std::string()
           : std::format(" HINTS {}", context.fTools.fLlvmBin),
-      context.fTools.fRanlib);
+      context.fTools.fRanlib, probes);
   log::info("{}", path.string());
   return true;
 }
