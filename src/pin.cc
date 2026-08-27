@@ -6,6 +6,7 @@ import mandk.git;
 import mandk.layout;
 import mandk.log;
 import mandk.manifest;
+import mandk.manifest.io;
 
 export namespace mandk {
 
@@ -105,7 +106,7 @@ export namespace mandk {
     log::error("nothing was written; the manifest is left as it was");
     return false;
   }
-  return manifest.save();
+  return saveManifest(manifest);
 }
 
 } // namespace mandk

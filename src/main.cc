@@ -3,6 +3,7 @@ import mandk.journal;
 import mandk.layout;
 import mandk.log;
 import mandk.manifest;
+import mandk.manifest.io;
 import mandk.pin;
 import mandk.plan;
 import mandk.process;
@@ -292,7 +293,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  std::optional<Manifest> manifest = Manifest::load(invocation->fManifest);
+  std::optional<Manifest> manifest = loadManifest(invocation->fManifest);
   if (!manifest) {
     return 1;
   }

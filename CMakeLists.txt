@@ -42,6 +42,7 @@ set(mandk_modules
   src/search.cc
   src/layout.cc
   src/manifest.cc
+  src/manifestio.cc
   src/journal.cc
   src/git.cc
   src/aosp.cc
