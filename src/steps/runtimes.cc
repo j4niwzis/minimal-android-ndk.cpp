@@ -237,18 +237,23 @@ runCmake(const Context &context, std::string_view what,
     }
 
     const std::filesystem::path install = context.fLayout.runtimeInstall();
+    // No -resource-dir here, deliberately.
+    //
+    // It was passed so that the builtins would be found, and nothing here
+    // links: these are static archives and the tests are off. What it did
+    // instead was replace the directory clang keeps its own headers in, so
+    // libc++'s stddef.h asked for the next stddef.h after itself and there
+    // was none. The copy of that directory below is for whoever consumes the
+    // toolchain, not for building it.
+    //
     // Bionic declares the ctype functions static inline, and a static inline
     // definition cannot be re-exported from libc++'s std module. Bionic
     // offers this override for exactly that.
-    const std::string flags =
-        std::format("-resource-dir={}", context.fLayout.clangResource().string());
     std::vector<std::string> arguments = crossArguments(context, install);
     for (const std::string &extra :
          {std::format("-DCMAKE_AR={}", context.fTools.fAr),
           std::format("-DCMAKE_RANLIB={}", context.fTools.fRanlib),
-          std::format("-DCMAKE_C_FLAGS={}", flags),
-          std::format("-DCMAKE_CXX_FLAGS={} -D__BIONIC_CTYPE_INLINE=inline",
-                      flags),
+          std::string("-DCMAKE_CXX_FLAGS=-D__BIONIC_CTYPE_INLINE=inline"),
           std::string("-DLLVM_ENABLE_RUNTIMES=libcxx;libcxxabi;libunwind"),
           std::string("-DLIBCXX_ENABLE_SHARED=OFF"),
           std::string("-DLIBCXXABI_ENABLE_SHARED=OFF"),
