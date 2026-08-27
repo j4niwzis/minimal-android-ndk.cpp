@@ -55,6 +55,7 @@ set(mandk_modules
   src/steps/stubs.cc
   src/steps/runtimes.cc
   src/steps/check.cc
+  src/steps/crt.cc
   src/steps/apksigner.cc
   src/steps/framework.cc
   src/steps/apk.cc

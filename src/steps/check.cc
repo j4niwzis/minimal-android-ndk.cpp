@@ -140,7 +140,7 @@ inline void dynamicSymbols(const Context &context,
   Step step;
   step.fName = "check";
   step.fSummary = "build something with the toolchain and read what came out";
-  step.fNeeds = {"runtimes", "toolchain-file"};
+  step.fNeeds = {"runtimes", "toolchain-file", "crt"};
   step.fRun = [](Context &context) {
     const std::filesystem::path work = context.fLayout.buildOf("check");
     std::error_code code;

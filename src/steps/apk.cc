@@ -60,7 +60,8 @@ export namespace mandk::steps {
   Step step;
   step.fName = "apk";
   step.fSummary = "build, package and sign an APK out of what this produced";
-  step.fNeeds = {"runtimes", "toolchain-file", "framework-res", "apksigner"};
+  step.fNeeds = {"runtimes", "toolchain-file", "framework-res",
+                 "apksigner", "crt"};
   step.fRun = [](Context &context) {
     for (const std::string &program :
          {context.fTools.fAapt2, context.fTools.fZipalign,

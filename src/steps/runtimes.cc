@@ -28,9 +28,11 @@ crossArguments(const Context &context, const std::filesystem::path &prefix) {
       std::format("-DCMAKE_INSTALL_PREFIX={}", prefix.string()),
       "-DCMAKE_BUILD_TYPE=Release",
       "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
-      // Nothing in this sysroot can link an executable: the Android startup
-      // objects are not part of it, and every compiler probe would fail on
-      // that rather than on what it was asking about.
+      // The startup objects the crt step builds are the shared-library
+      // pair, and these two are configured before the builtins they would
+      // link against exist. A probe that tries to link an executable fails
+      // on one or the other, and reports that rather than the question it
+      // was asking.
       "-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY",
   };
 }
@@ -176,6 +178,42 @@ runCmake(const Context &context, std::string_view what,
       return false;
     }
     log::info("{}", archive->string());
+
+    // Where compiler-rt puts the archive and where the driver goes looking
+    // for it are two different decisions, and they disagree. compiler-rt
+    // installs lib/linux/libclang_rt.builtins-<arch>.a; a Clang built with
+    // per-target runtime directories asks the linker for
+    // lib/<normalised triple, API level and all>/libclang_rt.builtins.a. The
+    // link then fails on a path nothing ever wrote.
+    //
+    // Which layout a Clang wants is a property of how that Clang was
+    // configured, so it is asked rather than worked out: -print-libgcc-file-
+    // name names the exact file it will hand the linker.
+    const CommandResult wanted =
+        run({.fProgram = context.fTools.fClang,
+             .fArguments = {std::format("--target={}",
+                                        context.target().clangTarget()),
+                            "-rtlib=compiler-rt",
+                            std::format("-resource-dir={}", resource.string()),
+                            "-print-libgcc-file-name"}});
+    if (!wanted.ok()) {
+      log::error("{} will not say which builtins archive it links against",
+                 context.fTools.fClang);
+      return false;
+    }
+    const std::filesystem::path expected(firstLine(wanted.fOutput));
+    if (!std::filesystem::equivalent(expected, *archive, code)) {
+      std::filesystem::create_directories(expected.parent_path(), code);
+      std::filesystem::copy_file(
+          *archive, expected, std::filesystem::copy_options::overwrite_existing,
+          code);
+      if (code) {
+        log::error("cannot put the builtins where {} looks for them, {}: {}",
+                   context.fTools.fClang, expected.string(), code.message());
+        return false;
+      }
+      log::info("{} (where the driver looks)", expected.string());
+    }
     return true;
   };
   return step;
