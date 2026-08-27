@@ -85,6 +85,7 @@ done. A name that is not a package is refused rather than ignored.
 | `runtimes` | build libc++, libc++abi and libunwind into the sysroot |
 | `toolchain-file` | write the CMake toolchain file the dependencies use |
 | `third-party` | build the libraries that were asked for, into the prefix |
+| `check` | build something with the toolchain and read what came out |
 | `hashes` | record the commits and the digests of what was produced |
 
 `minimal-android-ndk plan` also lists the steps that are declared and not
