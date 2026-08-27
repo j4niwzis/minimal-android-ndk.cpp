@@ -7,6 +7,7 @@ import mandk.plan;
 import mandk.process;
 import mandk.search;
 import mandk.sha256;
+import mandk.text;
 
 export namespace mandk::steps {
 
@@ -62,15 +63,28 @@ export namespace mandk::steps {
       roots.push_back(*found);
     }
 
+    const std::filesystem::path work = context.fLayout.buildOf("apksigner");
+    const std::filesystem::path classes = work / "classes";
+    const std::filesystem::path patched = work / "patched";
+    std::filesystem::remove_all(work, code);
+    std::filesystem::create_directories(classes, code);
+
     // What is left out, and why.
     //
     // The key management implementations talk to Amazon and Google and need
     // their SDKs, which are not here and are not wanted. The interfaces they
-    // implement stay, because the signer's own factory names them. And the
-    // command has an optional registration of Conscrypt as a security
-    // provider, which needs Conscrypt.
+    // implement stay, because the signer's own factory names them.
+    //
+    // Conscrypt is not a file that can be left out: the command registers it
+    // as a security provider in one line in the middle of its own main
+    // class. That line is optional -- the signer works with the runtime's
+    // providers -- so the file is copied with the line commented out and the
+    // copy is compiled. The checkout is not touched: it is a git checkout,
+    // and a tool that edits its own sources leaves a tree nobody can trust
+    // the next time it is read.
     std::vector<std::string> sources;
     std::size_t skipped = 0;
+    std::size_t edited = 0;
     for (const std::filesystem::path &root : roots) {
       for (const auto &entry : search::walk(root, false)) {
         if (entry.extension() != ".java") {
@@ -78,12 +92,36 @@ export namespace mandk::steps {
         }
         const std::string path = entry.generic_string();
         if (path.find("/kms/aws/") != std::string::npos ||
-            path.find("/kms/gcp/") != std::string::npos ||
-            path.find("Conscrypt") != std::string::npos) {
+            path.find("/kms/gcp/") != std::string::npos) {
           ++skipped;
           continue;
         }
-        sources.push_back(entry.string());
+
+        std::ifstream reading(entry);
+        std::string text((std::istreambuf_iterator<char>(reading)),
+                         std::istreambuf_iterator<char>());
+        if (text.find("org.conscrypt") == std::string::npos) {
+          sources.push_back(entry.string());
+          continue;
+        }
+
+        const std::filesystem::path copy =
+            patched / std::filesystem::relative(entry, root, code);
+        std::filesystem::create_directories(copy.parent_path(), code);
+        std::ofstream writing(copy, std::ios::trunc);
+        std::size_t lines = 0;
+        for (const auto &line : text::split(text, '\n')) {
+          if (line.find("org.conscrypt") != std::string::npos) {
+            writing << "// left out by minimal-android-ndk: " << line << '\n';
+            ++lines;
+          } else {
+            writing << line << '\n';
+          }
+        }
+        log::info("{}: {} line(s) about Conscrypt commented out",
+                  entry.filename().string(), lines);
+        sources.push_back(copy.string());
+        ++edited;
       }
     }
     if (sources.empty()) {
@@ -91,12 +129,8 @@ export namespace mandk::steps {
                  roots[1].string());
       return false;
     }
-    log::info("{} Java sources, {} left out", sources.size(), skipped);
-
-    const std::filesystem::path work = context.fLayout.buildOf("apksigner");
-    const std::filesystem::path classes = work / "classes";
-    std::filesystem::remove_all(work, code);
-    std::filesystem::create_directories(classes, code);
+    log::info("{} Java sources, {} left out, {} copied and edited",
+              sources.size(), skipped, edited);
 
     // A list in a file rather than on the command line: there are a few
     // hundred of them and an argument list has a length.
