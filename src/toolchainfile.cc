@@ -52,8 +52,8 @@ toolchainFilePath(const Layout &layout) {
       "set(CMAKE_AR \"${{MANDK_AR}}\" CACHE FILEPATH \"archiver\" FORCE)\n"
       "set(CMAKE_RANLIB \"${{MANDK_RANLIB}}\" CACHE FILEPATH \"ranlib\" FORCE)\n"
       "\n"
-      # One argument, not two: set() with two of them makes a list, and a
-      # list becomes a semicolon in the middle of the flags.
+      // One argument, not two: set() with two of them makes a list, and a
+      // list becomes a semicolon in the middle of the flags.
       "set(mandk_common \"--sysroot=${{MANDK_SYSROOT}}"
       " -resource-dir=${{MANDK_RESOURCE_DIR}} -D__ANDROID_NDK__\")\n"
       "set(CMAKE_C_FLAGS_INIT \"${{mandk_common}} -fPIC\")\n"
