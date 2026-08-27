@@ -191,12 +191,23 @@ locateMaps(const Context &context) {
 [[nodiscard]] inline bool verifyStub(const Context &context,
                                      const StubLibrary &stub,
                                      const std::filesystem::path &library) {
+  if (!haveProgram(context.fTools.fReadelf)) {
+    log::error("{} is not on PATH, and a stub nobody reads back is a stub "
+               "nobody checked. Name one with --readelf.",
+               context.fTools.fReadelf);
+    return false;
+  }
   const CommandResult symbols =
       run({.fProgram = context.fTools.fReadelf,
            .fArguments = {"--dyn-syms", "--wide", library.string()}});
   if (!symbols.ok()) {
-    log::error("{} cannot be read back with {}", library.string(),
-               context.fTools.fReadelf);
+    log::error("{} could not read {} (status {})", context.fTools.fReadelf,
+               library.string(), symbols.fExitCode);
+    for (const auto &line : text::split(symbols.fOutput, '\n')) {
+      if (!text::trim(line).empty()) {
+        log::error("  | {}", line);
+      }
+    }
     return false;
   }
   bool good = true;

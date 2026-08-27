@@ -268,6 +268,26 @@ int main(int argc, char **argv) {
     manifest->fTarget.fApi = *invocation->fApi;
   }
 
+  // A tool that is called by one name on one distribution and another
+  // elsewhere is worth settling before anything uses it, so that a missing
+  // one is reported as missing rather than as a file that could not be read.
+  for (const auto &[configured, alternatives] :
+       std::initializer_list<std::pair<std::string *, std::vector<std::string>>>{
+           {&invocation->fTools.fReadelf, {"llvm-readelf", "readelf"}},
+           {&invocation->fTools.fAr, {"llvm-ar", "ar"}},
+           {&invocation->fTools.fRanlib, {"llvm-ranlib", "ranlib"}}}) {
+    if (haveProgram(*configured)) {
+      continue;
+    }
+    for (const std::string &other : alternatives) {
+      if (haveProgram(other)) {
+        log::info("{} is not on PATH; using {}", *configured, other);
+        *configured = other;
+        break;
+      }
+    }
+  }
+
   const Layout layout(invocation->fRoot);
   std::error_code code;
   std::filesystem::create_directories(layout.logs(), code);
