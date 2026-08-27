@@ -377,6 +377,14 @@
       "require": ["android/native_window.h", "android/input.h", "android/keycodes.h", "android/rect.h"]
     },
     {
+      // log.h lives with liblog rather than with the framework headers, and
+      // the one the framework carries declares less of it.
+      "source": "logging",
+      "find": "liblog/include/android",
+      "into": "android",
+      "require": ["android/log.h"]
+    },
+    {
       "source": "base",
       "find": "include/android",
       "into": "android",
@@ -451,7 +459,7 @@
       "library": "log",
       "source": "logging",
       "file": "liblog.map.txt",
-      "verify": ["__android_log_write", "__android_log_print"]
+      "verify": ["__android_log_write", "__android_log_print", "__android_log_vprint"]
     },
     {
       "library": "android",
