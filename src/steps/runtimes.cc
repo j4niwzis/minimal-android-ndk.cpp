@@ -389,10 +389,10 @@ runCmake(const Context &context, std::string_view what,
           run({.fProgram = context.fTools.fReadelf,
                .fArguments = {"--string-dump=.deplibs", archive.string()}});
       std::set<std::string> asked;
-      for (const std::string &line : split(dump.fOutput, '\n')) {
+      for (const std::string &line : text::split(dump.fOutput, '\n')) {
         const std::size_t close = line.find(']');
         if (line.starts_with("[") && close != std::string::npos) {
-          const std::string wanted(trim(line.substr(close + 1)));
+          const std::string wanted(text::trim(line.substr(close + 1)));
           if (!wanted.empty()) {
             asked.insert(wanted);
           }
