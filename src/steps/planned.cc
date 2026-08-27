@@ -23,9 +23,6 @@ export namespace mandk::steps {
       planned("framework-res",
               "link the platform resource package that aapt2 is given with -I",
               {"sources"}),
-      planned("apksigner",
-              "build the apksig jar without the KMS providers",
-              {"sources"}),
   };
 }
 

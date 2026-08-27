@@ -83,7 +83,6 @@
       "url": "https://android.googlesource.com/platform/tools/apksig",
       "project": "platform/tools/apksig",
       "commit": "",
-      "optional": true,
       "note": "the signer, built with javac and jar"
     },
     {

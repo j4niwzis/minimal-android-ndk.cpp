@@ -85,12 +85,21 @@ done. A name that is not a package is refused rather than ignored.
 | `runtimes` | build libc++, libc++abi and libunwind into the sysroot |
 | `toolchain-file` | write the CMake toolchain file the dependencies use |
 | `third-party` | build the libraries that were asked for, into the prefix |
+| `apksigner` | build the signer, the one APK tool a distribution has not got |
 | `check` | build something with the toolchain and read what came out |
 | `hashes` | record the commits and the digests of what was produced |
 
-`minimal-android-ndk plan` also lists the steps that are declared and not
-implemented yet: `framework-res` and `apksigner`. They refuse to run rather
-than reporting a success they did not have.
+`minimal-android-ndk plan` also lists the one step that is declared and not
+implemented yet: `framework-res`. It refuses to run rather than reporting a
+success it did not have.
+
+Everything else an APK needs comes from the distribution -- `aapt2`,
+`zipalign`, `keytool`, a Java runtime -- except the signer, which is an AOSP
+project rather than a package. That one is built here, with `javac` and `jar`
+and nothing else: no Gradle, no Maven, nothing downloaded. Its key management
+implementations for Amazon and Google are left out, since they need SDKs that
+are not here and are not wanted; the interfaces they implement stay, because
+the signer names them itself.
 
 The toolchain proper -- everything a library needs before it can be built at
 all -- is the first six steps:

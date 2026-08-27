@@ -6,6 +6,7 @@ import mandk.manifest;
 import mandk.pin;
 import mandk.plan;
 import mandk.process;
+import mandk.steps.apksigner;
 import mandk.steps.check;
 import mandk.steps.hashes;
 import mandk.steps.headers;
@@ -30,6 +31,7 @@ using namespace mandk;
   plan.add(steps::compilerRt());
   plan.add(steps::runtimes());
   plan.add(steps::check());
+  plan.add(steps::apksigner());
   plan.add(steps::thirdParty());
   for (Step &step : steps::remaining()) {
     plan.add(std::move(step));

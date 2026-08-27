@@ -28,6 +28,9 @@ struct Tools {
   std::string fAr = "llvm-ar";
   std::string fRanlib = "llvm-ranlib";
   std::string fCmake = "cmake";
+  std::string fJavac = "javac";
+  std::string fJar = "jar";
+  std::string fJava = "java";
   std::string fNinja = "ninja";
   std::string fGn = "gn";
   std::string fPkgConfig = "pkg-config";

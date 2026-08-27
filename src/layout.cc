@@ -59,6 +59,10 @@ public:
   [[nodiscard]] std::filesystem::path runtimeInstall() const {
     return fRoot / "runtime-install";
   }
+  // What is built here that is not a library and not a header: the signer,
+  // and whatever else the making of an APK needs that a distribution does
+  // not have.
+  [[nodiscard]] std::filesystem::path tools() const { return fRoot / "tools"; }
   [[nodiscard]] std::filesystem::path ndkCompat() const {
     return fRoot / "ndk-compat";
   }
