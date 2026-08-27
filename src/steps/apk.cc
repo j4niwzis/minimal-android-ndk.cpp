@@ -8,7 +8,9 @@ import mandk.process;
 import mandk.text;
 import mandk.toolchainfile;
 
-export namespace mandk::steps {
+// The text of what gets packaged. Not exported, for the same reason as in
+// the check: a name exported from two modules is the same name twice.
+namespace mandk::steps {
 
 // A real APK, made of everything this tool produced.
 //
@@ -17,7 +19,7 @@ export namespace mandk::steps {
 // the archives, the resource package resolves, the signer signs -- each of
 // those is checked on its own elsewhere, and none of them says whether the
 // result is an APK.
-inline constexpr std::string_view kManifest =
+inline constexpr std::string_view kApkManifest =
     R"(<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="org.example.mandkcheck">
@@ -29,7 +31,7 @@ inline constexpr std::string_view kManifest =
 </manifest>
 )";
 
-inline constexpr std::string_view kLibrary = R"(#include <string>
+inline constexpr std::string_view kApkLibrary = R"(#include <string>
 #include <vector>
 
 // Enough of the language to need the runtimes, and nothing else: this is
@@ -44,11 +46,15 @@ extern "C" int mandk_apk_check() {
 }
 )";
 
-inline constexpr std::string_view kProject = R"(cmake_minimum_required(VERSION 3.24)
+inline constexpr std::string_view kApkProject = R"(cmake_minimum_required(VERSION 3.24)
 project(mandk-apk LANGUAGES CXX)
 add_library(mandkcheck SHARED library.cc)
 target_compile_features(mandkcheck PRIVATE cxx_std_20)
 )";
+
+} // namespace mandk::steps
+
+export namespace mandk::steps {
 
 [[nodiscard]] inline Step apk() {
   Step step;
@@ -71,9 +77,9 @@ target_compile_features(mandkcheck PRIVATE cxx_std_20)
     std::filesystem::remove_all(work, code);
     std::filesystem::create_directories(work / "source", code);
     {
-      std::ofstream(work / "source" / "library.cc") << kLibrary;
-      std::ofstream(work / "source" / "CMakeLists.txt") << kProject;
-      std::ofstream(work / "AndroidManifest.xml") << kManifest;
+      std::ofstream(work / "source" / "library.cc") << kApkLibrary;
+      std::ofstream(work / "source" / "CMakeLists.txt") << kApkProject;
+      std::ofstream(work / "AndroidManifest.xml") << kApkManifest;
     }
 
     // The native library, through the toolchain file, exactly as anything

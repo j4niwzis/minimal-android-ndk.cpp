@@ -8,7 +8,9 @@ import mandk.process;
 import mandk.text;
 import mandk.toolchainfile;
 
-export namespace mandk::steps {
+// The text of what gets built. Not exported: it belongs to this step, and
+// a name exported from two modules is the same name twice.
+namespace mandk::steps {
 
 // Whether the toolchain works, asked of something built with it rather than
 // of the files it is made of.
@@ -16,7 +18,7 @@ export namespace mandk::steps {
 // A shared library and not a program: this sysroot has no startup objects,
 // on purpose, and an Android application is a shared library the platform
 // loads anyway.
-inline constexpr std::string_view kProgram = R"(#include <exception>
+inline constexpr std::string_view kCheckSource = R"(#include <exception>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -58,11 +60,15 @@ extern "C" int mandk_check(int count) {
 }
 )";
 
-inline constexpr std::string_view kProject = R"(cmake_minimum_required(VERSION 3.24)
+inline constexpr std::string_view kCheckProject = R"(cmake_minimum_required(VERSION 3.24)
 project(mandk-check LANGUAGES CXX)
 add_library(mandk-check SHARED check.cc)
 target_compile_features(mandk-check PRIVATE cxx_std_20)
 )";
+
+} // namespace mandk::steps
+
+export namespace mandk::steps {
 
 // The names a shared object says it needs, out of the dynamic section.
 [[nodiscard]] inline std::vector<std::string>
@@ -142,9 +148,9 @@ inline void dynamicSymbols(const Context &context,
     std::filesystem::create_directories(work / "source", code);
     {
       std::ofstream source(work / "source" / "check.cc");
-      source << kProgram;
+      source << kCheckSource;
       std::ofstream project(work / "source" / "CMakeLists.txt");
-      project << kProject;
+      project << kCheckProject;
     }
 
     // Through the toolchain file, because that is what anything using this
