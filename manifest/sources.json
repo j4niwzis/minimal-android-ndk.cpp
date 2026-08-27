@@ -397,6 +397,12 @@
     },
     {
       "source": "native",
+      "find": "opengl/include/GLES",
+      "into": "GLES",
+      "require": ["GLES/gl.h", "GLES/glext.h"]
+    },
+    {
+      "source": "native",
       "find": "opengl/include/GLES2",
       "into": "GLES2",
       "require": ["GLES2/gl2.h"]
