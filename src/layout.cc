@@ -25,16 +25,22 @@ struct Target {
 // same tree.
 class Layout {
 public:
-  explicit Layout(std::filesystem::path root) : fRoot(std::move(root)) {}
+  // Two roots, because two different things live in them. One holds what is
+  // produced and kept -- the sysroot, the stubs, the runtimes, the prefix --
+  // and the other holds what is only needed while producing it. Mixing them
+  // means a scratch directory sitting inside the toolchain it was used to
+  // make, which is confusing to look at and worse to delete.
+  Layout(std::filesystem::path root, std::filesystem::path build)
+      : fRoot(std::move(root)), fBuild(std::move(build)) {}
 
   [[nodiscard]] const std::filesystem::path &root() const { return fRoot; }
   [[nodiscard]] std::filesystem::path sources() const { return fRoot / "src"; }
   [[nodiscard]] std::filesystem::path sourceOf(std::string_view name) const {
     return this->sources() / name;
   }
-  [[nodiscard]] std::filesystem::path build() const { return fRoot / "build"; }
+  [[nodiscard]] const std::filesystem::path &build() const { return fBuild; }
   [[nodiscard]] std::filesystem::path buildOf(std::string_view name) const {
-    return this->build() / name;
+    return fBuild / name;
   }
   [[nodiscard]] std::filesystem::path sysroot() const { return fRoot / "sysroot"; }
   [[nodiscard]] std::filesystem::path sysrootInclude() const {
@@ -59,10 +65,11 @@ public:
   [[nodiscard]] std::filesystem::path stamps() const {
     return this->build() / "stamps";
   }
-  [[nodiscard]] std::filesystem::path logs() const { return fRoot / "logs"; }
+  [[nodiscard]] std::filesystem::path logs() const { return fBuild / "logs"; }
 
 private:
   std::filesystem::path fRoot;
+  std::filesystem::path fBuild;
 };
 
 } // namespace mandk

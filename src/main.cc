@@ -54,8 +54,10 @@ Libraries
                     not being built)
 
 Options
-  --root DIR        where the toolchain is built   (default $ANDROID_FREE,
+  --root DIR        where the toolchain is put      (default $ANDROID_FREE,
                     otherwise ~/android-free)
+  --build-root DIR  where things are built on the way (default ./ndk, or
+                    $MANDK_BUILD)
   --manifest FILE   the pinned source list         (default $MANDK_MANIFEST,
                     otherwise ./manifest/sources.json)
   --api N           override the API level in the manifest
@@ -77,6 +79,7 @@ struct Invocation {
   std::vector<std::string> fWith;
   bool fAll = false;
   std::filesystem::path fRoot;
+  std::filesystem::path fBuild;
   std::filesystem::path fManifest;
   std::string fPlatform;
   std::optional<int> fApi;
@@ -97,6 +100,13 @@ struct Invocation {
 [[nodiscard]] std::optional<Invocation> parse(std::span<const std::string> args) {
   Invocation invocation;
   invocation.fRoot = defaultRoot();
+  // Beside where the tool was run rather than inside what it produces: a
+  // scratch tree in the middle of a toolchain is hard to tell from the
+  // toolchain.
+  invocation.fBuild = std::filesystem::current_path() / "ndk";
+  if (const char *const set = std::getenv("MANDK_BUILD"); set != nullptr) {
+    invocation.fBuild = set;
+  }
   invocation.fManifest = "manifest/sources.json";
   if (const char *const set = std::getenv("MANDK_MANIFEST"); set != nullptr) {
     invocation.fManifest = set;
@@ -117,6 +127,10 @@ struct Invocation {
       const auto given = value(argument);
       if (!given) return std::nullopt;
       invocation.fRoot = *given;
+    } else if (argument == "--build-root") {
+      const auto given = value(argument);
+      if (!given) return std::nullopt;
+      invocation.fBuild = *given;
     } else if (argument == "--manifest") {
       const auto given = value(argument);
       if (!given) return std::nullopt;
@@ -289,7 +303,7 @@ int main(int argc, char **argv) {
   settle(tools.fAr, {"llvm-ar", "ar"});
   settle(tools.fRanlib, {"llvm-ranlib", "ranlib"});
 
-  const Layout layout(invocation->fRoot);
+  const Layout layout(invocation->fRoot, invocation->fBuild);
   std::error_code code;
   std::filesystem::create_directories(layout.logs(), code);
   log::sink().setTranscript(layout.logs() / "minimal-android-ndk.log");
@@ -311,10 +325,11 @@ int main(int argc, char **argv) {
   const std::string &command = invocation->fCommand;
 
   if (command == "plan") {
-    std::cout << std::format("root     {}\nmanifest {}\ntarget   {} api {}\n\n",
-                             layout.root().string(),
-                             invocation->fManifest.string(),
-                             context.target().fTriple, context.target().fApi);
+    std::cout << std::format(
+        "toolchain {}\nbuilt in  {}\nmanifest  {}\ntarget    {} api {}\n\n",
+        layout.root().string(), layout.build().string(),
+        invocation->fManifest.string(), context.target().fTriple,
+        context.target().fApi);
     printPlan(plan, context);
     if (!context.fPackages.empty()) {
       std::cout << std::format("\n{} libraries asked for\n",
