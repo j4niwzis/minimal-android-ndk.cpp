@@ -260,10 +260,10 @@ locateMaps(const Context &context) {
       log::error("ndkstubgen is not in the soong checkout");
       return false;
     }
-    // ndkstubgen imports its neighbours as a package, so the directory above
-    // it is what belongs on PYTHONPATH.
-    const std::filesystem::path pythonPath =
-        generator->parent_path().parent_path();
+    // ndkstubgen imports symbolfile, which is its neighbour rather than its
+    // child, so what belongs on PYTHONPATH is the directory holding both --
+    // soong's cc -- and not the one above that.
+    const std::filesystem::path pythonPath = generator->parent_path();
 
     const std::filesystem::path generated = work / "generated";
     const std::filesystem::path libraries =

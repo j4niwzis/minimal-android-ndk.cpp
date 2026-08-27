@@ -37,10 +37,18 @@ struct Command {
   printable.push_back(command.fProgram);
   printable.insert(printable.end(), command.fArguments.begin(),
                    command.fArguments.end());
-  log::debug("run {}{}", command.fDirectory.empty()
-                             ? std::string()
-                             : std::format("(in {}) ", command.fDirectory.string()),
-             text::commandLine(printable));
+  // The environment is part of what was run. Leaving it out of the line meant
+  // a failure could be read a dozen times without the reason being visible,
+  // because the reason was a variable the command was given.
+  std::string environment;
+  for (const auto &[name, value] : command.fEnvironment) {
+    environment += std::format("{}={} ", name, text::shellQuote(value));
+  }
+  log::debug("run {}{}{}", command.fDirectory.empty()
+                               ? std::string()
+                               : std::format("(in {}) ",
+                                             command.fDirectory.string()),
+             environment, text::commandLine(printable));
 
   std::vector<char *> argv;
   argv.reserve(printable.size() + 1);
@@ -127,7 +135,11 @@ struct Command {
   printable.insert(printable.end(), command.fArguments.begin(),
                    command.fArguments.end());
   log::error("{} failed with status {}", what, result.fExitCode);
-  log::error("  {}", text::commandLine(printable));
+  std::string environment;
+  for (const auto &[name, value] : command.fEnvironment) {
+    environment += std::format("{}={} ", name, text::shellQuote(value));
+  }
+  log::error("  {}{}", environment, text::commandLine(printable));
   for (const auto &line : text::split(result.fOutput, '\n')) {
     if (!text::trim(line).empty()) {
       log::error("  | {}", line);
