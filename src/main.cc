@@ -269,7 +269,7 @@ void printEnvironment(const Context &context) {
 
 int main(int argc, char **argv) {
   const std::vector<std::string> args(argv + 1, argv + argc);
-  const std::optional<Invocation> invocation = parse(args);
+  std::optional<Invocation> invocation = parse(args);
   if (!invocation) {
     return 1;
   }
@@ -282,28 +282,75 @@ int main(int argc, char **argv) {
     manifest->fTarget.fApi = *invocation->fApi;
   }
 
-  // A tool that is called by one name on one distribution and another
-  // elsewhere is worth settling before anything uses it, so that a missing
-  // one is reported as missing rather than as a file that could not be read.
+  // Every tool becomes a path, and every path becomes absolute.
+  //
+  // CMake reads CMAKE_AR as a path, so a bare name is a file in whatever
+  // directory the build happened to start in -- which is how "ar" became
+  // /home/user/minimal-android-ndk.cpp/ar and was not found. And a relative
+  // root is worse than useless once anything changes directory, which CMake
+  // does for every compiler probe.
   Tools tools = invocation->fTools;
-  const auto settle = [](std::string &configured,
-                         std::initializer_list<std::string_view> alternatives) {
-    if (haveProgram(configured)) {
-      return;
-    }
-    for (const std::string_view other : alternatives) {
-      if (haveProgram(other)) {
-        log::info("{} is not on PATH; using {}", configured, other);
-        configured = std::string(other);
-        return;
+  std::string llvmBin = tools.fLlvmBin;
+  if (llvmBin.empty()) {
+    // Where the LLVM tools are is not always on PATH -- /usr/lib/llvm/22/bin
+    // is not -- but the compiler knows where it lives, and they live beside
+    // it.
+    const CommandResult resource =
+        run({.fProgram = tools.fClang, .fArguments = {"-print-resource-dir"}});
+    if (resource.ok()) {
+      std::filesystem::path where(firstLine(resource.fOutput));
+      // .../lib/clang/<version> -> .../bin
+      where = where.parent_path().parent_path().parent_path() / "bin";
+      std::error_code code;
+      if (std::filesystem::is_directory(where, code)) {
+        llvmBin = where.string();
+        log::debug("the compiler's own tools are in {}", llvmBin);
       }
     }
-  };
-  settle(tools.fReadelf, {"llvm-readelf", "readelf"});
-  settle(tools.fAr, {"llvm-ar", "ar"});
-  settle(tools.fRanlib, {"llvm-ranlib", "ranlib"});
+  }
 
-  const Layout layout(invocation->fRoot, invocation->fBuild);
+  const auto settle = [&llvmBin](std::string &configured,
+                                 std::initializer_list<std::string_view>
+                                     alternatives) {
+    std::vector<std::string> candidates{configured};
+    if (!llvmBin.empty()) {
+      candidates.push_back((std::filesystem::path(llvmBin) / configured)
+                               .string());
+    }
+    for (const std::string_view other : alternatives) {
+      if (!llvmBin.empty()) {
+        candidates.push_back((std::filesystem::path(llvmBin) / other).string());
+      }
+      candidates.emplace_back(other);
+    }
+    for (const std::string &candidate : candidates) {
+      const std::filesystem::path found = findProgram(candidate);
+      if (found.empty()) {
+        continue;
+      }
+      std::error_code code;
+      const std::string resolved =
+          std::filesystem::absolute(found, code).string();
+      if (resolved != configured) {
+        log::info("{} is {}", configured, resolved);
+      }
+      configured = resolved;
+      return;
+    }
+    log::warn("{} was not found anywhere; leaving it as it is", configured);
+  };
+  settle(tools.fClang, {});
+  settle(tools.fClangxx, {});
+  settle(tools.fReadelf, {"readelf"});
+  settle(tools.fAr, {"ar"});
+  settle(tools.fRanlib, {"ranlib"});
+
+  // Absolute, because a compiler probe runs in a directory of CMake's
+  // choosing and a relative sysroot means nothing there.
+  std::error_code pathCode;
+  const Layout layout(
+      std::filesystem::absolute(invocation->fRoot, pathCode),
+      std::filesystem::absolute(invocation->fBuild, pathCode));
   std::error_code code;
   std::filesystem::create_directories(layout.logs(), code);
   log::sink().setTranscript(layout.logs() / "minimal-android-ndk.log");
