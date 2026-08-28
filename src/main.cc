@@ -65,8 +65,8 @@ Libraries
                     not being built)
 
 Options
-  --root DIR        where the toolchain is put      (default $ANDROID_FREE,
-                    otherwise ~/android-free)
+  --root DIR        where the toolchain is put      (default $ANDROID_MINIMAL,
+                    otherwise ~/android-minimal)
   --build-root DIR  where things are built on the way (default ./ndk, or
                     $MANDK_BUILD)
   --manifest FILE   the pinned source list         (default $MANDK_MANIFEST,
@@ -103,13 +103,13 @@ struct Invocation {
 };
 
 [[nodiscard]] std::filesystem::path defaultRoot() {
-  if (const char *const set = std::getenv("ANDROID_FREE"); set != nullptr) {
+  if (const char *const set = std::getenv("ANDROID_MINIMAL"); set != nullptr) {
     return set;
   }
   if (const char *const home = std::getenv("HOME"); home != nullptr) {
-    return std::filesystem::path(home) / "android-free";
+    return std::filesystem::path(home) / "android-minimal";
   }
-  return std::filesystem::current_path() / "android-free";
+  return std::filesystem::current_path() / "android-minimal";
 }
 
 [[nodiscard]] std::optional<Invocation> parse(std::span<const std::string> args) {
@@ -269,13 +269,13 @@ void printEnvironment(const Context &context) {
   const Layout &layout = context.fLayout;
   const Target &target = context.target();
   std::cout << std::format(
-      "export ANDROID_FREE={}\n"
+      "export ANDROID_MINIMAL={}\n"
       "export ANDROID_API={}\n"
       "export ANDROID_TRIPLE={}\n"
       "export ANDROID_LIBDIR={}\n"
       "\n"
-      "cmake -S standalone -B build/android-free -G Ninja \\\n"
-      "  -DCMAKE_TOOLCHAIN_FILE=\"$PWD/cmake/toolchains/android-free.cmake\" \\\n"
+      "cmake -S standalone -B build/android-minimal -G Ninja \\\n"
+      "  -DCMAKE_TOOLCHAIN_FILE=\"$PWD/cmake/toolchains/android-minimal.cmake\" \\\n"
       "  -DCMAKE_BUILD_TYPE=Release \\\n"
       "  -DCMAKE_PREFIX_PATH=\"{}\" \\\n"
       "  -DOSU_ANDROID_FRAMEWORK_RES_APK=\"{}\" \\\n"
