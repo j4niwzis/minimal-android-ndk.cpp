@@ -132,11 +132,29 @@ featureFlags(const std::filesystem::path &manifest) {
         "--private-symbols", "com.android.internal"};
     const std::vector<std::string> flags = featureFlags(manifest);
     if (!flags.empty()) {
-      log::info("the manifest gates {} element(s) on feature flags; all are "
-                "linked as on",
-                flags.size());
-      arguments.push_back("--feature-flags");
-      arguments.push_back(text::join(flags, ","));
+      // Whether this aapt2 knows the option is asked of this aapt2. The one
+      // Android ships takes --feature-flags; the one a distribution builds
+      // from an older AOSP does not, and refuses the whole command over an
+      // unknown option rather than over anything in the resources.
+      //
+      // A manifest that gates nothing needs none of this, which is the case
+      // for every release before flagged resources existed.
+      const CommandResult help =
+          run({.fProgram = context.fTools.fAapt2, .fArguments = {"link", "-h"}});
+      const bool understands =
+          help.fOutput.find("--feature-flags") != std::string::npos;
+      if (understands) {
+        log::info("the manifest gates {} element(s) on feature flags; all are "
+                  "linked as on",
+                  flags.size());
+        arguments.push_back("--feature-flags");
+        arguments.push_back(text::join(flags, ","));
+      } else {
+        log::warn("the manifest gates {} element(s) on feature flags and this "
+                  "aapt2 has no --feature-flags; they are linked as off, "
+                  "which is what an aapt2 of that age does with them",
+                  flags.size());
+      }
     }
     if (!runChecked({.fProgram = context.fTools.fAapt2,
                      .fArguments = std::move(arguments)},
