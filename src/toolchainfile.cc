@@ -87,6 +87,13 @@ toolchainFilePath(const Layout &layout) {
       "set(mandk_common \"--sysroot=${{MANDK_SYSROOT}}"
       " -resource-dir=${{MANDK_RESOURCE_DIR}} -D__ANDROID_NDK__\")\n"
       "set(CMAKE_C_FLAGS_INIT \"${{mandk_common}} -fPIC\")\n"
+      // Assembly is a language CMake enables separately, and a compiler
+      // driver with no --target assembles for the machine it runs on: an
+      // aarch64 source then fails on its own operands, "unknown token in
+      // expression" at #0xb0. Boost.Context is written in assembly, so this
+      // is not a corner.
+      "set(CMAKE_ASM_COMPILER_TARGET \"{7}\")\n"
+      "set(CMAKE_ASM_FLAGS_INIT \"${{mandk_common}} -fPIC\")\n"
       "# Bionic declares the ctype functions static inline, and a static\n"
       "# inline definition cannot be re-exported from libc++'s std module.\n"
       "# Bionic offers this override for exactly that, and uses it itself.\n"
