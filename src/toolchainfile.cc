@@ -128,6 +128,21 @@ toolchainFilePath(const Layout &layout) {
       "  endif()\n"
       "endif()\n"
       "\n"
+      // Which std module sources belong to this libc++.
+      //
+      // CMake asks the compiler `-print-file-name=libc++.modules.json` and
+      // nothing else: no --sysroot, no --target. The answer is therefore
+      // about the libc++ that came with the compiler, whose std.cppm is
+      // generated against its own headers and disagrees with the headers
+      // here about which of them exist -- "please update the header
+      // information for <text_encoding>" is that disagreement. The manifest
+      // installed with the runtimes in this sysroot is the one that matches,
+      // so it is stated rather than discovered.
+      "if(EXISTS \"${{MANDK_SYSROOT}}/usr/lib/libc++.modules.json\")\n"
+      "  set(CMAKE_CXX_STDLIB_MODULES_JSON\n"
+      "    \"${{MANDK_SYSROOT}}/usr/lib/libc++.modules.json\")\n"
+      "endif()\n"
+      "\n"
       "set(CMAKE_FIND_ROOT_PATH \"${{MANDK_SYSROOT}}\" \"${{MANDK_PREFIX}}\")\n"
       "set(CMAKE_LIBRARY_PATH \"${{MANDK_LIBRARY_DIR}}\" \"${{MANDK_PREFIX}}/lib\")\n"
       "set(CMAKE_INCLUDE_PATH \"${{MANDK_SYSROOT}}/usr/include\"\n"
