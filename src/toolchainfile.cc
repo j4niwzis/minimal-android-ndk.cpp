@@ -190,7 +190,12 @@ toolchainFilePath(const Layout &layout) {
   Step step;
   step.fName = "toolchain-file";
   step.fSummary = "write the CMake toolchain file the dependencies use";
-  step.fNeeds = {"sysroot-headers", "api-stubs"};
+  // crt as well, and not because this step uses what it builds: the file
+  // says whether a probe here can link a program, and that is decided by
+  // looking for the startup objects. Written before crt runs, it looks in an
+  // empty directory, concludes no, and every check_function_exists in every
+  // port that follows is answered yes.
+  step.fNeeds = {"sysroot-headers", "api-stubs", "crt"};
   step.fRun = [](Context &context) { return writeToolchainFile(context); };
   return step;
 }
