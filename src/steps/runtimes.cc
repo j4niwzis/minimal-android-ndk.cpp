@@ -142,6 +142,15 @@ runCmake(const Context &context, std::string_view what,
     CopyReport carried;
     copyTree(from, resource, {}, carried);
     log::info("{} files from {}", carried.fCopied, from.string());
+
+    // The headers are what was wanted from there. What else a resource
+    // directory holds is that compiler's own runtime libraries, built for
+    // the machine it runs on -- apt.llvm.org ships them, Alpine keeps them
+    // in a separate package and ships none. Left in place, the archive
+    // installed here a moment later is not the only libclang_rt.builtins
+    // under this directory, and the one found first was x86-64: an archive
+    // the aarch64 link refuses, on a host where the architectures differ.
+    std::filesystem::remove_all(resource / "lib", code);
     if (!std::filesystem::exists(resource / "include" / "stddef.h", code)) {
       log::error("{} has no include/stddef.h after copying {}, and a resource "
                  "directory without the compiler's own headers is one nothing "
