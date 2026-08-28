@@ -92,7 +92,18 @@ toolchainFilePath(const Layout &layout) {
       "# Bionic offers this override for exactly that, and uses it itself.\n"
       "set(CMAKE_CXX_FLAGS_INIT\n"
       "  \"${{mandk_common}} -D__BIONIC_CTYPE_INLINE=inline -fPIC -stdlib=libc++\")\n"
-      "set(CMAKE_SHARED_LINKER_FLAGS_INIT \"${{mandk_common}} -fuse-ld=lld\")\n"
+      // Which runtime library a Clang links by default is decided when
+      // that Clang is built: Debian's and apt.llvm.org's packages default
+      // to libgcc, Alpine's to compiler-rt. There is no libgcc in this
+      // sysroot and there is not going to be one -- the builtins here are
+      // compiler-rt and the unwinder is libunwind -- so both are said
+      // rather than left to the compiler that happens to be running.
+      "set(mandk_link\n"
+      "  \"${{mandk_common}} -fuse-ld=lld -rtlib=compiler-rt"
+      " -unwindlib=libunwind\")\n"
+      "set(CMAKE_EXE_LINKER_FLAGS_INIT \"${{mandk_link}}\")\n"
+      "set(CMAKE_SHARED_LINKER_FLAGS_INIT \"${{mandk_link}}\")\n"
+      "set(CMAKE_MODULE_LINKER_FLAGS_INIT \"${{mandk_link}}\")\n"
       "\n"
       "set(CMAKE_FIND_ROOT_PATH \"${{MANDK_SYSROOT}}\" \"${{MANDK_PREFIX}}\")\n"
       "set(CMAKE_LIBRARY_PATH \"${{MANDK_LIBRARY_DIR}}\" \"${{MANDK_PREFIX}}/lib\")\n"
