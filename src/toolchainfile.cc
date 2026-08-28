@@ -105,6 +105,29 @@ toolchainFilePath(const Layout &layout) {
       "set(CMAKE_SHARED_LINKER_FLAGS_INIT \"${{mandk_link}}\")\n"
       "set(CMAKE_MODULE_LINKER_FLAGS_INIT \"${{mandk_link}}\")\n"
       "\n"
+      // Which file the builtins are in, for a project that has to name it
+      // on a link line of its own. The layout compiler-rt installed them
+      // in -- lib/linux/libclang_rt.builtins-<arch>-android.a, or
+      // lib/<triple>/libclang_rt.builtins.a -- follows from how the Clang
+      // doing the linking was built, so the answer is asked of that Clang
+      // rather than assembled from a naming rule here. -rtlib=compiler-rt
+      // is part of the question: without it a Clang that defaults to
+      // libgcc answers about a libgcc that this sysroot does not have.
+      "if(NOT MANDK_BUILTINS)\n"
+      "  execute_process(\n"
+      "    COMMAND \"${{CMAKE_C_COMPILER}}\"\n"
+      "            --target=${{CMAKE_C_COMPILER_TARGET}}\n"
+      "            --sysroot=${{MANDK_SYSROOT}}\n"
+      "            -resource-dir=${{MANDK_RESOURCE_DIR}}\n"
+      "            -rtlib=compiler-rt -print-libgcc-file-name\n"
+      "    OUTPUT_VARIABLE mandk_builtins OUTPUT_STRIP_TRAILING_WHITESPACE\n"
+      "    ERROR_QUIET)\n"
+      "  if(EXISTS \"${{mandk_builtins}}\")\n"
+      "    set(MANDK_BUILTINS \"${{mandk_builtins}}\" CACHE FILEPATH\n"
+      "      \"the compiler-rt builtins for this target\")\n"
+      "  endif()\n"
+      "endif()\n"
+      "\n"
       "set(CMAKE_FIND_ROOT_PATH \"${{MANDK_SYSROOT}}\" \"${{MANDK_PREFIX}}\")\n"
       "set(CMAKE_LIBRARY_PATH \"${{MANDK_LIBRARY_DIR}}\" \"${{MANDK_PREFIX}}/lib\")\n"
       "set(CMAKE_INCLUDE_PATH \"${{MANDK_SYSROOT}}/usr/include\"\n"
