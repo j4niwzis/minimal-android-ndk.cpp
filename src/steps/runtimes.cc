@@ -379,6 +379,29 @@ runCmake(const Context &context, std::string_view what,
           std::filesystem::copy_options::overwrite_existing, code);
     }
 
+    // libatomic, which is not a library on this platform.
+    //
+    // The atomic operations a compiler cannot emit inline live in bionic's
+    // libc and in the builtins -- the outline atomic helpers are part of
+    // what compiler-rt was just built with. Nothing implements them
+    // separately, so there is nothing to build. But -latomic is written into
+    // the link line of a great many projects, and a linker that cannot find
+    // a library says so and stops. Google's NDK ships an archive under that
+    // name for this reason; an empty one is the honest form of it, because
+    // it states that the name resolves and contributes nothing.
+    const std::filesystem::path atomic = libraries / "libatomic.a";
+    if (!std::filesystem::exists(atomic, code)) {
+      const CommandResult made = run(
+          {.fProgram = context.fTools.fAr, .fArguments = {"rcs", atomic.string()}});
+      if (!made.ok() || !std::filesystem::exists(atomic, code)) {
+        log::error("cannot create {}", atomic.string());
+        return false;
+      }
+      log::info("{}: empty, so that -latomic resolves against a platform "
+                "whose atomics are in libc and in the builtins",
+                atomic.string());
+    }
+
     bool complete = true;
     for (const std::filesystem::path &wanted :
          {sysroot / "usr" / "include" / "c++" / "v1" / "vector",
