@@ -19,6 +19,20 @@ export namespace mandk::steps {
 crossArguments(const Context &context, const std::filesystem::path &prefix) {
   const Target &target = context.target();
   return {
+      // Said, not implied. Naming the compilers and their --target is not
+      // enough to make this a cross build in CMake's eyes: without a system
+      // name CMAKE_CROSSCOMPILING stays false, and compiler-rt then builds
+      // its builtins for the machine it is running on. On a host of the
+      // same architecture as the target that produces something that links
+      // anyway; on any other it produces an archive the linker refuses --
+      // "is incompatible with aarch64linux" -- which is how this was found,
+      // by building on x86-64 for the first time.
+      //
+      // Linux rather than Android for the same reason the toolchain file
+      // says Linux: CMake's Android support goes looking for an NDK.
+      "-DCMAKE_SYSTEM_NAME=Linux",
+      std::format("-DCMAKE_SYSTEM_PROCESSOR={}",
+                  target.fTriple.substr(0, target.fTriple.find('-'))),
       std::format("-DCMAKE_C_COMPILER={}", context.fTools.fClang),
       std::format("-DCMAKE_CXX_COMPILER={}", context.fTools.fClangxx),
       std::format("-DCMAKE_ASM_COMPILER={}", context.fTools.fClang),
