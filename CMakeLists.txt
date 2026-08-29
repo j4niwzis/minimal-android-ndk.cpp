@@ -59,8 +59,6 @@ set(mandk_modules
   src/steps/apksigner.cc
   src/steps/framework.cc
   src/steps/apk.cc
-  src/steps/thirdparty.cc
-  src/steps/skia.cc
   src/steps/planned.cc
   src/steps/hashes.cc
 )

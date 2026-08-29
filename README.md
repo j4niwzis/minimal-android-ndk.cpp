@@ -8,11 +8,24 @@ CMake, Ninja, Python, Java, `aapt2` and `zipalign` come from the Linux
 distribution; everything else is checked out at a pinned commit and built
 here.
 
-It targets one ABI at a time. The tree it produces is the one described in
-[osu-cpp's Android notes][notes], so a tree assembled by hand and a tree
-built by this tool are the same tree.
+It targets one ABI at a time.
 
-[notes]: https://github.com/j4niwzis/osu-cpp/blob/android/android/BUILDING_WITHOUT_OFFICIAL_NDK.md
+## What it does not do
+
+It builds a toolchain, and a toolchain is not a collection of libraries.
+zlib, libpng, freetype, Skia and the rest were built here once and are not
+any more: which libraries a program needs, at which versions, with which
+features, is that program's question, and answering it inside an NDK means
+answering it the same way for everybody.
+
+[cmake-everywhere][cme] answers it instead. A project writes
+`find_package(Skia)`, and the library comes from the system when the system
+has one that will do and from a pinned source build when it does not -- with
+the toolchain this tool produced. The two fit together without either
+knowing much about the other: this one writes a CMake toolchain file, and
+that one is told to use it.
+
+[cme]: https://github.com/j4niwzis/cmake-everywhere
 
 ## Building the tool
 

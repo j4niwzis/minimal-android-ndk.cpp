@@ -18,7 +18,6 @@ import mandk.steps.planned;
 import mandk.steps.runtimes;
 import mandk.steps.sources;
 import mandk.steps.stubs;
-import mandk.steps.thirdparty;
 import mandk.toolchainfile;
 
 namespace {
@@ -39,7 +38,6 @@ using namespace mandk;
   plan.add(steps::apksigner());
   plan.add(steps::frameworkRes());
   plan.add(steps::apk());
-  plan.add(steps::thirdParty());
   for (Step &step : steps::remaining()) {
     plan.add(std::move(step));
   }
