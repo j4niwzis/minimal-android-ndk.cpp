@@ -104,7 +104,7 @@
     {
       "name": "r8",
       "url": "https://r8.googlesource.com/r8",
-      "ref": "3db149a8b338f7c59994980a5da7030d1175f64b",
+      "ref": "refs/tags/agp-9.2.1",
       "commit": "",
       "optional": true,
       "note": "only needed when the document picker bridge is compiled to DEX"
