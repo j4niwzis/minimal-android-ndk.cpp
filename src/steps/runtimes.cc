@@ -355,6 +355,13 @@ runCmake(const Context &context, std::string_view what,
           std::string("-DLIBCXX_HAS_ATOMIC_LIB=OFF"),
           // These two exist, and are the sysroot's own.
           std::string("-DLIBUNWIND_HAS_DL_LIB=ON"),
+          // __cxa_thread_atexit_impl is bionic's from API 23. The probe for
+          // it answers yes here, as every probe does, and libc++abi then
+          // calls it outright: below API 23 that is a link that fails in
+          // whatever program uses a thread_local with a destructor. Said,
+          // libc++abi keeps its own fallback for older platforms.
+          std::format("-DLIBCXXABI_HAS_CXA_THREAD_ATEXIT_IMPL={}",
+                      context.target().fApi >= 23 ? "ON" : "OFF"),
           std::string("-DLIBCXXABI_HAS_DL_LIB=ON")}) {
       arguments.push_back(extra);
     }
