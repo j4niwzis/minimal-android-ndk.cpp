@@ -31,8 +31,7 @@ crossArguments(const Context &context, const std::filesystem::path &prefix) {
       // Linux rather than Android for the same reason the toolchain file
       // says Linux: CMake's Android support goes looking for an NDK.
       "-DCMAKE_SYSTEM_NAME=Linux",
-      std::format("-DCMAKE_SYSTEM_PROCESSOR={}",
-                  target.fTriple.substr(0, target.fTriple.find('-'))),
+      std::format("-DCMAKE_SYSTEM_PROCESSOR={}", target.processor()),
       std::format("-DCMAKE_C_COMPILER={}", context.fTools.fClang),
       std::format("-DCMAKE_CXX_COMPILER={}", context.fTools.fClangxx),
       std::format("-DCMAKE_ASM_COMPILER={}", context.fTools.fClang),
@@ -49,6 +48,9 @@ crossArguments(const Context &context, const std::filesystem::path &prefix) {
       // on one or the other, and reports that rather than the question it
       // was asking.
       "-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY",
+      std::format("-DCMAKE_C_FLAGS={}", target.flagText()),
+      std::format("-DCMAKE_ASM_FLAGS={}", target.flagText()),
+      std::format("-DCMAKE_CXX_FLAGS={}", target.flagText()),
   };
 }
 
@@ -165,6 +167,12 @@ runCmake(const Context &context, std::string_view what,
          {std::format("-DCMAKE_AR={}", context.fTools.fAr),
           std::format("-DCMAKE_RANLIB={}", context.fTools.fRanlib),
           std::string("-DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON"),
+          // As an Android build: it then asks the compiler which
+          // architecture it targets (detect_target_arch). As a Linux one it
+          // reads the triple's first word, and armv7a is not one it knows --
+          // "Builtin supported architectures:" said nothing, and nothing was
+          // built.
+          std::string("-DANDROID=ON"),
           std::string("-DCOMPILER_RT_BUILD_BUILTINS=ON"),
           std::string("-DCOMPILER_RT_BUILD_SANITIZERS=OFF"),
           std::string("-DCOMPILER_RT_BUILD_XRAY=OFF"),
@@ -291,8 +299,16 @@ runCmake(const Context &context, std::string_view what,
     for (const std::string &extra :
          {std::format("-DCMAKE_AR={}", context.fTools.fAr),
           std::format("-DCMAKE_RANLIB={}", context.fTools.fRanlib),
-          std::string("-DCMAKE_CXX_FLAGS=-D__BIONIC_CTYPE_INLINE=inline"),
+          std::format("-DCMAKE_CXX_FLAGS={} -D__BIONIC_CTYPE_INLINE=inline",
+                      context.target().flagText()),
           std::string("-DLLVM_ENABLE_RUNTIMES=libcxx;libcxxabi;libunwind"),
+          // A 32-bit target is built with _FILE_OFFSET_BITS=64 by LLVM's
+          // CMake, and bionic then names fseeko64 and ftello64, which are API
+          // 24: below it, libc++'s fstream does not compile. The off_t is
+          // 32 bits there, as bionic has it; on a 64-bit target this says
+          // nothing.
+          std::format("-DLLVM_FORCE_SMALLFILE_FOR_ANDROID={}",
+                      context.target().fApi < 24 ? "ON" : "OFF"),
           std::string("-DLIBCXX_ENABLE_SHARED=OFF"),
           std::string("-DLIBCXXABI_ENABLE_SHARED=OFF"),
           std::string("-DLIBUNWIND_ENABLE_SHARED=OFF"),

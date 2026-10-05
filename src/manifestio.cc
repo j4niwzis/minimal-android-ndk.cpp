@@ -44,6 +44,10 @@ loadManifest(const std::filesystem::path &path) {
     manifest.fTarget.fArch = target.value("arch", manifest.fTarget.fArch);
     manifest.fTarget.fAbi = target.value("abi", manifest.fTarget.fAbi);
     manifest.fTarget.fApi = target.value("api", manifest.fTarget.fApi);
+    manifest.fTarget.fSysrootTriple =
+        target.value("sysroot-triple", manifest.fTarget.fSysrootTriple);
+    manifest.fTarget.fFlags =
+        target.value("flags", manifest.fTarget.fFlags);
   }
   for (const json &entry : document.value("sources", json::array())) {
     Source source;
@@ -132,6 +136,12 @@ loadManifest(const std::filesystem::path &path) {
                         {"arch", manifest.fTarget.fArch},
                         {"abi", manifest.fTarget.fAbi},
                         {"api", manifest.fTarget.fApi}};
+  if (!manifest.fTarget.fSysrootTriple.empty()) {
+    document["target"]["sysroot-triple"] = manifest.fTarget.fSysrootTriple;
+  }
+  if (!manifest.fTarget.fFlags.empty()) {
+    document["target"]["flags"] = manifest.fTarget.fFlags;
+  }
   document["sources"] = json::array();
   for (const Source &source : manifest.fSources) {
     json entry;

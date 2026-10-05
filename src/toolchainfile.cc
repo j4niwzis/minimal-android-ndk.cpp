@@ -63,7 +63,7 @@ toolchainFilePath(const Layout &layout) {
       "# describe, and there is none. The target triple is what makes this a\n"
       "# build for Android, and __ANDROID__ comes from the compiler with it.\n"
       "set(CMAKE_SYSTEM_NAME Linux)\n"
-      "set(CMAKE_SYSTEM_PROCESSOR aarch64)\n"
+      "set(CMAKE_SYSTEM_PROCESSOR {12})\n"
       "set(ANDROID TRUE CACHE BOOL \"Building for Android\" FORCE)\n"
       "\n"
       "set(MANDK_ROOT \"{0}\")\n"
@@ -85,7 +85,7 @@ toolchainFilePath(const Layout &layout) {
       // One argument, not two: set() with two of them makes a list, and a
       // list becomes a semicolon in the middle of the flags.
       "set(mandk_common \"--sysroot=${{MANDK_SYSROOT}}"
-      " -resource-dir=${{MANDK_RESOURCE_DIR}} -D__ANDROID_NDK__\")\n"
+      " -resource-dir=${{MANDK_RESOURCE_DIR}} -D__ANDROID_NDK__ {13}\")\n"
       "set(CMAKE_C_FLAGS_INIT \"${{mandk_common}} -fPIC\")\n"
       // Assembly is a language CMake enables separately, and a compiler
       // driver with no --target assembles for the machine it runs on: an
@@ -181,7 +181,7 @@ toolchainFilePath(const Layout &layout) {
       context.fTools.fLlvmBin.empty()
           ? std::string()
           : std::format(" HINTS {}", context.fTools.fLlvmBin),
-      context.fTools.fRanlib, probes);
+      context.fTools.fRanlib, probes, target.processor(), target.flagText());
   log::info("{}", path.string());
   return true;
 }

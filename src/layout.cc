@@ -12,6 +12,33 @@ struct Target {
   std::string fArch = "arm64";
   std::string fAbi = "arm64-v8a";
   int fApi = 27;
+  // The triple the sysroot's library directory and the multiarch names
+  // use, where it is not the one Clang is given: 32-bit ARM is
+  // armv7a-linux-androideabi to Clang -- arm-linux-androideabi would be
+  // ARMv5 -- and arm-linux-androideabi to the directories Clang searches.
+  // Empty: the same as fTriple.
+  std::string fSysrootTriple;
+  // What every compile for this target is given besides --target: what
+  // Clang does not assume for it. 32-bit ARM is soft float with no FPU to
+  // Clang 23 unless told -- the NDK says -mfpu=neon -mfloat-abi=softfp
+  // -mthumb itself -- and everything built for it would emulate its
+  // floating point. Nothing, for arm64.
+  std::vector<std::string> fFlags;
+
+  // The flags as one argument for a CMake *_FLAGS variable.
+  [[nodiscard]] std::string flagText() const {
+    return fFlags | std::views::join_with(' ') | std::ranges::to<std::string>();
+  }
+
+  [[nodiscard]] const std::string &sysrootTriple() const {
+    return fSysrootTriple.empty() ? fTriple : fSysrootTriple;
+  }
+  // The processor, as CMake names it: the sysroot triple's first word --
+  // aarch64, arm.
+  [[nodiscard]] std::string processor() const {
+    const std::string &triple = this->sysrootTriple();
+    return triple.substr(0, triple.find('-'));
+  }
 
   // What Clang is given: the API level is part of the target, not a flag
   // beside it.
@@ -49,7 +76,7 @@ public:
   // The link stubs live where Clang looks for a versioned Android sysroot,
   // which is usr/lib/<triple>/<api>.
   [[nodiscard]] std::filesystem::path sysrootLib(const Target &target) const {
-    return this->sysroot() / "usr" / "lib" / target.fTriple /
+    return this->sysroot() / "usr" / "lib" / target.sysrootTriple() /
            std::to_string(target.fApi);
   }
   [[nodiscard]] std::filesystem::path prefix() const { return fRoot / "prefix"; }

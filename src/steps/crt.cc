@@ -88,7 +88,7 @@ export namespace mandk::steps {
     // writes into the note: the platform reads it back as the API level the
     // library was built against, so it is this build's API level and not the
     // one the source tree happens to be from.
-    const std::vector<std::string> flags{
+    std::vector<std::string> flags{
         std::format("--target={}", target.clangTarget()),
         std::format("--sysroot={}", context.fLayout.sysroot().string()),
         std::format("-I{}", (bionic / "libc").string()),
@@ -97,6 +97,7 @@ export namespace mandk::steps {
         "-O2",
         "-c",
     };
+    flags.insert(flags.begin() + 1, target.fFlags.begin(), target.fFlags.end());
 
     const auto compile = [&](std::string_view name,
                              const std::filesystem::path &object) {

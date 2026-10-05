@@ -78,6 +78,8 @@ struct Context {
     hash.update(fManifest.fTarget.fTriple);
     hash.update(std::to_string(fManifest.fTarget.fApi));
     hash.update(fManifest.fTarget.fArch);
+    hash.update(fManifest.fTarget.sysrootTriple());
+    hash.update(fManifest.fTarget.flagText());
     for (const std::string &package : fPackages) {
       hash.update(package);
     }
