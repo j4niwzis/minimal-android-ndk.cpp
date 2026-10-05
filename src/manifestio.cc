@@ -118,6 +118,12 @@ loadManifest(const std::filesystem::path &path) {
     for (const json &name : entry.value("require", json::array())) {
       rule.fRequire.push_back(name.get<std::string>());
     }
+    for (const json &fix : entry.value("corrections", json::array())) {
+      rule.fCorrections.push_back({.fFile = fix.value("file", std::string()),
+                                   .fReplace = fix.value("replace", std::string()),
+                                   .fWith = fix.value("with", std::string()),
+                                   .fWhy = fix.value("why", std::string())});
+    }
     if (rule.fSource.empty() || rule.fFind.empty()) {
       log::error("a header rule in {} has no source or nothing to find",
                  path.string());
@@ -179,6 +185,12 @@ loadManifest(const std::filesystem::path &path) {
     }
     if (!rule.fRequire.empty()) {
       entry["require"] = rule.fRequire;
+    }
+    for (const HeaderCorrection &fix : rule.fCorrections) {
+      entry["corrections"].push_back({{"file", fix.fFile},
+                                      {"replace", fix.fReplace},
+                                      {"with", fix.fWith},
+                                      {"why", fix.fWhy}});
     }
     document["headers"].push_back(std::move(entry));
   }

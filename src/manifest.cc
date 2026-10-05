@@ -54,7 +54,20 @@ struct StubLibrary {
 // fRequire is what must exist afterwards. Header layouts change between
 // platform revisions, and a rule that silently matched the wrong directory is
 // worse than one that says so.
+// A header as the platform publishes it can be wrong for a target the
+// platform itself never compiles it for: an exact piece of text, replaced in
+// the copy under usr/include. Found exactly once, or the step fails -- a
+// correction that no longer applies is a manifest to update, not one to
+// pass over.
+struct HeaderCorrection {
+  std::string fFile; // under usr/include
+  std::string fReplace;
+  std::string fWith;
+  std::string fWhy;
+};
+
 struct HeaderRule {
+  std::vector<HeaderCorrection> fCorrections;
   std::string fSource;
   std::string fFind;
   std::string fInto;

@@ -49,6 +49,29 @@ export namespace mandk::steps {
     log::info("{} headers copied, {} already present, {} disagreed",
               report.fCopied, report.fSkipped, report.fConflicts);
 
+    // The corrections, in the copies: each piece of text found exactly once.
+    for (const HeaderRule &rule : context.fManifest.fHeaders) {
+      for (const HeaderCorrection &fix : rule.fCorrections) {
+        const std::filesystem::path file = include / fix.fFile;
+        std::string text;
+        {
+          std::ifstream in(file, std::ios::binary);
+          text.assign(std::istreambuf_iterator<char>(in), {});
+        }
+        const std::size_t at = text.find(fix.fReplace);
+        if (fix.fReplace.empty() || at == std::string::npos ||
+            text.find(fix.fReplace, at + 1) != std::string::npos) {
+          log::error("usr/include/{}: the correction's text is not there "
+                     "exactly once: {}",
+                     fix.fFile, fix.fReplace);
+          return false;
+        }
+        text.replace(at, fix.fReplace.size(), fix.fWith);
+        std::ofstream(file, std::ios::binary | std::ios::trunc) << text;
+        log::info("usr/include/{}: {}", fix.fFile, fix.fWhy);
+      }
+    }
+
     // What every rule together was supposed to produce. A sysroot that is
     // missing one of these compiles nothing, and saying so here is cheaper
     // than a compiler error a hundred steps later.
